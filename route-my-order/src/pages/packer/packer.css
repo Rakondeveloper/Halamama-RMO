@@ -1,0 +1,865 @@
+/* 2026 Minimalist Monochrome Packer App Design (Black & White Only) */
+/* Mirrors picker.css design system exactly */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --color-bg: #ffffff;
+  --color-fg: #000000;
+  --color-border: #000000;
+  --color-muted: #707070;
+  --color-light-gray: #f2f2f2;
+  --font-picker: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Base container for mobile-first app layout */
+.packer-container {
+  background-color: var(--color-bg);
+  min-height: 100vh;
+  color: var(--color-fg);
+  padding-bottom: 80px;
+}
+
+/* Header styled like a fixed native mobile header */
+.packer-header {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.packer-header-title {
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.packer-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.packer-user-info {
+  text-align: right;
+  line-height: 1.1;
+}
+
+.packer-user-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.packer-user-role {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+/* Optimized padding & margins for tablet/mobile responsiveness */
+.packer-content {
+  padding: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Metrics grid (Compact) */
+.packer-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .packer-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.packer-metric-card {
+  background-color: var(--color-bg);
+  padding: 8px;
+  border: 1.5px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.packer-metric-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-light-gray);
+  color: var(--color-fg);
+  flex-shrink: 0;
+}
+
+.packer-metric-value {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.packer-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.packer-shift-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+/* Minimalist Tabs */
+.packer-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1.5px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.packer-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.packer-tab-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-fg);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.packer-tab-btn.active {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.packer-tab-badge {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4px;
+  background: var(--color-light-gray);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+}
+
+.packer-tab-btn.active .packer-tab-badge {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+/* Order Card (Ultra Compact) */
+.packer-order-card {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.packer-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.packer-order-id {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.packer-order-items-count {
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.packer-order-customer {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-fg);
+}
+
+.packer-order-date {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 8px;
+}
+
+.packer-order-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* B&W Buttons */
+.packer-btn-start {
+  flex: 1;
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-weight: 700;
+  padding: 8px 12px;
+  font-size: 12px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.packer-btn-start:hover {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.packer-btn-view {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-fg);
+  font-weight: 700;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.packer-btn-view:hover {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* Customer Info Card */
+.packer-customer-card {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.packer-customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.packer-customer-name { font-weight: 800; color: var(--color-fg); font-size: 14px; text-transform: uppercase; }
+.packer-customer-phone { font-size: 12px; color: var(--color-muted); margin-top: 2px; }
+.packer-customer-date { font-size: 11px; color: var(--color-muted); margin-top: 2px; }
+
+.packer-customer-total {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--color-fg);
+  text-align: right;
+}
+.packer-customer-stats {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Progress bar in B&W */
+.packer-progress-bar {
+  height: 6px;
+  background-color: var(--color-light-gray);
+  border: 1px solid var(--color-border);
+  margin-top: 10px;
+  overflow: hidden;
+}
+.packer-progress-fill {
+  height: 100%;
+  background-color: var(--color-fg);
+  transition: width 0.3s ease;
+}
+
+/* Items details container */
+.packer-items-container {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.packer-items-header {
+  padding: 8px 12px;
+  background: var(--color-light-gray);
+  border-bottom: 1.5px solid var(--color-border);
+  font-weight: 800;
+  color: var(--color-fg);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.packer-item-row {
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  position: relative;
+  border-bottom: 1.5px solid var(--color-border);
+}
+.packer-item-row:last-child { border-bottom: none; }
+
+.packer-item-img-container {
+  width: 50px;
+  height: 50px;
+  background-color: var(--color-light-gray);
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+.packer-item-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+.packer-item-details { flex: 1; padding-right: 30px; }
+.packer-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-fg);
+  line-height: 1.3;
+}
+.packer-item-qty { font-weight: 800; text-decoration: underline; }
+.packer-item-meta {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-top: 3px;
+}
+
+/* Check toggle buttons */
+.packer-item-toggle {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-fg);
+  font-weight: 700;
+  background: var(--color-bg);
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.packer-item-toggle.active { 
+  color: var(--color-bg); 
+  background: var(--color-fg);
+}
+
+.packer-check-circle {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* NATIVE LOOKING DETAIL VIEW PANEL WITH HIGH Z-INDEX */
+.packer-detail-view {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background-color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  animation: slideInLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.packer-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  padding-bottom: 90px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* FIXED BOTTOM ACTION ISLAND IN B&W */
+.packer-bottom-action {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 70;
+  display: flex;
+  justify-content: center;
+}
+
+.packer-bottom-action-inner { 
+  width: 100%; 
+  max-width: 576px; 
+}
+
+.packer-btn-complete {
+  width: 100%;
+  padding: 12px;
+  font-weight: 800;
+  font-size: 13px;
+  border: 2px solid var(--color-border);
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.packer-btn-complete.ready {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.packer-btn-complete.not-ready {
+  background: var(--color-bg);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+/* Bag Input Field in B&W */
+.packer-bag-section {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.packer-bag-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-fg);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.packer-bag-desc {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 8px;
+}
+
+.packer-bag-input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+  font-family: var(--font-picker);
+}
+
+.packer-bag-input:focus {
+  background: var(--color-light-gray);
+}
+
+/* Minimalist Monochrome Modals */
+.packer-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.packer-modal-content {
+  background-color: var(--color-bg);
+  border: 2px solid var(--color-border);
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+  text-align: center;
+}
+
+.packer-modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-fg);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.packer-modal-desc {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.packer-btn-confirm {
+  width: 100%;
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-weight: 800;
+  padding: 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.packer-btn-cancel {
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-weight: 800;
+  padding: 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Search & Filters */
+.packer-search-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.packer-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-fg);
+}
+
+.packer-search-input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 8px 8px 8px 32px;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.packer-search-input:focus {
+  background: var(--color-light-gray);
+}
+
+/* Global Packer Theme overrides for shared layout */
+.theme-packer {
+  background-color: var(--color-bg) !important;
+}
+
+.theme-packer a,
+.theme-packer .nav-item {
+  text-decoration: none !important;
+}
+
+.theme-packer .app-header {
+  background-color: var(--color-bg) !important;
+  border-bottom: 1.5px solid var(--color-border) !important;
+  color: var(--color-fg) !important;
+}
+
+.theme-packer .app-header .header-logo {
+  color: var(--color-fg) !important;
+  text-transform: uppercase;
+}
+.theme-packer .app-header .header-logo span {
+  color: var(--color-fg) !important;
+}
+
+.theme-packer .app-header .header-name {
+  color: var(--color-fg) !important;
+}
+
+.theme-packer .app-header .header-role {
+  color: var(--color-muted) !important;
+}
+
+.theme-packer .app-header .header-avatar {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+}
+
+.theme-packer .app-header .header-logout {
+  color: var(--color-muted) !important;
+}
+.theme-packer .app-header .header-logout:hover {
+  color: var(--color-fg) !important;
+  background-color: var(--color-light-gray) !important;
+}
+
+/* Bottom Nav Monochrome */
+.theme-packer .bottom-nav {
+  background: var(--color-bg) !important;
+  border-top: 1.5px solid var(--color-border) !important;
+}
+
+.theme-packer .bottom-nav .nav-item span {
+  color: var(--color-muted) !important;
+  text-decoration: none !important;
+}
+.theme-packer .bottom-nav .nav-item svg {
+  color: var(--color-muted) !important;
+}
+
+.theme-packer .bottom-nav .nav-item.active span,
+.theme-packer .bottom-nav .nav-item.active svg {
+  color: var(--color-fg) !important;
+}
+
+.theme-packer .bottom-nav .nav-item:hover span,
+.theme-packer .bottom-nav .nav-item:hover svg {
+  color: var(--color-fg) !important;
+}
+
+/* Page and cards layout */
+.theme-packer .page {
+  background-color: var(--color-bg) !important;
+  color: var(--color-fg) !important;
+}
+
+.theme-packer .page-title {
+  color: var(--color-fg) !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+
+.theme-packer .card {
+  background-color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  color: var(--color-fg) !important;
+  box-shadow: none !important;
+}
+
+/* Top Header logo image override for Packer B&W theme */
+.theme-packer .header-logo-img {
+  height: 22px;
+  max-width: 120px;
+  filter: brightness(0);
+  display: block;
+}
+
+/* Logout confirmation button styling */
+.theme-packer .logout-confirm-btn {
+  font-family: var(--font-picker);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: 0;
+  transition: all 0.1s ease;
+}
+
+.theme-packer .logout-confirm-btn.confirm {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+}
+
+.theme-packer .logout-confirm-btn.confirm:hover {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.theme-packer .logout-confirm-btn.cancel {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  border: 1.5px solid transparent;
+}
+
+.theme-packer .logout-confirm-btn.cancel:hover {
+  text-decoration: underline;
+}
+
+/* Inline Flagging Box in B&W Theme */
+.packer-item-flag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--color-fg);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.packer-item-flag:hover {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.packer-flag-box {
+  padding: 10px;
+  background-color: var(--color-light-gray);
+  border: 1.5px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.packer-flag-textarea {
+  width: 100%;
+  height: 60px;
+  border: 1.5px solid var(--color-border);
+  padding: 6px;
+  font-size: 12px;
+  outline: none;
+  resize: none;
+  font-family: var(--font-picker);
+}
+
+.packer-flag-textarea:focus {
+  background-color: var(--color-bg);
+}
+
+.packer-flag-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.packer-btn-flag-submit {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.packer-btn-flag-submit:hover {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.packer-btn-flag-cancel {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  border: 1.5px solid transparent;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.packer-btn-flag-cancel:hover {
+  text-decoration: underline;
+}
+
+/* Filter buttons */
+.packer-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.packer-filter-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-fg);
+  white-space: nowrap;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.packer-filter-btn.active {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* Assign button (primary style like picker) */
+.packer-btn-assign {
+  flex: 1;
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-weight: 700;
+  padding: 8px 12px;
+  font-size: 12px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.packer-btn-assign:hover {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}

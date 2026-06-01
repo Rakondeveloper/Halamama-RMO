@@ -1,0 +1,822 @@
+/* 2026 Minimalist Monochrome Picker App Design (Black & White Only) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --color-bg: #ffffff;
+  --color-fg: #000000;
+  --color-border: #000000;
+  --color-muted: #707070;
+  --color-light-gray: #f2f2f2;
+  --font-picker: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  font-family: var(--font-picker);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base container for mobile-first app layout */
+.picker-container {
+  background-color: var(--color-bg);
+  min-height: 100vh;
+  color: var(--color-fg);
+  padding-bottom: 80px;
+}
+
+/* Header styled like a fixed native mobile header */
+.picker-header {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.picker-header-title {
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.picker-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 0; /* Square-ish minimalist */
+  border: 1.5px solid var(--color-border);
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.picker-user-info {
+  text-align: right;
+  line-height: 1.1;
+}
+
+.picker-user-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.picker-user-role {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+/* Optimized padding & margins for tablet/mobile responsiveness */
+.picker-content {
+  padding: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Metrics grid (Compact) */
+.picker-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columns on desktop/tablet, wraps nicely */
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .picker-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.picker-metric-card {
+  background-color: var(--color-bg);
+  padding: 8px;
+  border: 1.5px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-metric-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-light-gray);
+  color: var(--color-fg);
+  flex-shrink: 0;
+}
+
+.picker-metric-value {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.picker-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+.picker-shift-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+/* Minimalist Tabs */
+.picker-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1.5px solid var(--color-border);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+}
+
+.picker-tabs::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome/Safari */
+}
+
+.picker-tab-btn {
+  flex-shrink: 0; /* Prevent buttons from squeezing */
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-fg);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.picker-tab-btn.active {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.picker-tab-badge {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4px;
+  background: var(--color-light-gray);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+}
+
+.picker-tab-btn.active .picker-tab-badge {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+/* Order Card (Ultra Compact) */
+.picker-order-card {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.picker-order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.picker-order-id {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.picker-order-items-count {
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.picker-order-customer {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-fg);
+}
+
+.picker-order-date {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 8px;
+}
+
+.picker-order-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* B&W Buttons */
+.picker-btn-assign {
+  flex: 1;
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-weight: 700;
+  padding: 8px 12px;
+  font-size: 12px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.picker-btn-assign:hover {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.picker-btn-view {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-fg);
+  font-weight: 700;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.picker-btn-view:hover {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* Warning Banner B&W Style */
+.picker-warning-banner {
+  border: 1.5px solid var(--color-border);
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  background-color: var(--color-light-gray);
+}
+
+.picker-warning-icon { color: var(--color-fg); flex-shrink: 0; }
+.picker-warning-title { font-weight: 800; color: var(--color-fg); font-size: 13px; text-transform: uppercase; }
+.picker-warning-text { font-size: 11px; color: var(--color-muted); line-height: 1.3; }
+
+/* Customer Info Card */
+.picker-customer-card {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.picker-customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.picker-customer-name { font-weight: 800; color: var(--color-fg); font-size: 14px; text-transform: uppercase; }
+.picker-customer-phone { font-size: 12px; color: var(--color-muted); margin-top: 2px; }
+.picker-customer-date { font-size: 11px; color: var(--color-muted); margin-top: 2px; }
+
+.picker-customer-total {
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--color-fg);
+  text-align: right;
+}
+.picker-customer-stats {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Progress bar in B&W */
+.picker-progress-bar {
+  height: 6px;
+  background-color: var(--color-light-gray);
+  border: 1px solid var(--color-border);
+  margin-top: 10px;
+  overflow: hidden;
+}
+.picker-progress-fill {
+  height: 100%;
+  background-color: var(--color-fg);
+  transition: width 0.3s ease;
+}
+
+/* Items details container */
+.picker-items-container {
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.picker-items-header {
+  padding: 8px 12px;
+  background: var(--color-light-gray);
+  border-bottom: 1.5px solid var(--color-border);
+  font-weight: 800;
+  color: var(--color-fg);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.picker-item-row {
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  position: relative;
+  border-bottom: 1.5px solid var(--color-border);
+}
+.picker-item-row:last-child { border-bottom: none; }
+
+.picker-item-flag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: var(--color-fg);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+.picker-item-flag:hover {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.picker-item-img-container {
+  width: 50px;
+  height: 50px;
+  background-color: var(--color-light-gray);
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+.picker-item-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+.picker-item-details { flex: 1; padding-right: 30px; }
+.picker-item-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-fg);
+  line-height: 1.3;
+}
+.picker-item-qty { font-weight: 800; text-decoration: underline; }
+.picker-item-meta {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-top: 3px;
+}
+
+/* Pick toggle buttons */
+.picker-item-toggle {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-fg);
+  font-weight: 700;
+  background: var(--color-bg);
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.picker-item-toggle.active { 
+  color: var(--color-bg); 
+  background: var(--color-fg);
+}
+
+.picker-check-circle {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* NATIVE LOOKING DETAIL VIEW PANEL WITH HIGH Z-INDEX */
+/* Hides bottom nav by rendering above it, and anchors back button fixed */
+.picker-detail-view {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* Higher than BottomNav (50) to fully cover it */
+  background-color: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  animation: slideInLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.picker-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  padding-bottom: 90px; /* Spacing so items aren't cut off by the bottom button */
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* FIXED BOTTOM ACTION ISLAND IN B&W */
+.picker-bottom-action {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 70; /* Above detail view */
+  display: flex;
+  justify-content: center;
+}
+
+.picker-bottom-action-inner { 
+  width: 100%; 
+  max-width: 576px; 
+}
+
+.picker-btn-complete {
+  width: 100%;
+  padding: 12px;
+  font-weight: 800;
+  font-size: 13px;
+  border: 2px solid var(--color-border);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.picker-btn-complete.ready {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.picker-btn-complete.not-ready {
+  background: var(--color-bg);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+/* Minimalist Monochrome Modals */
+.picker-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.picker-modal-content {
+  background-color: var(--color-bg);
+  border: 2px solid var(--color-border);
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+  text-align: center;
+}
+
+.picker-modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-fg);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.picker-modal-desc {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.picker-btn-confirm {
+  width: 100%;
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-weight: 800;
+  padding: 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.picker-btn-cancel {
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-weight: 800;
+  padding: 10px;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* Custom Search & Filters layout in B&W */
+.picker-search-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.picker-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-fg);
+}
+
+.picker-search-input {
+  width: 100%;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 8px 8px 8px 32px;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.picker-search-input:focus {
+  background: var(--color-light-gray);
+}
+
+.picker-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.picker-filter-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-fg);
+  white-space: nowrap;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.picker-filter-btn.active {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+/* Global Picker Theme overrides for shared layout (header, bottom nav, history, profile) */
+.theme-picker {
+  background-color: var(--color-bg) !important;
+}
+
+.theme-picker a,
+.theme-picker .nav-item {
+  text-decoration: none !important;
+}
+
+.theme-picker .app-header {
+  background-color: var(--color-bg) !important;
+  border-bottom: 1.5px solid var(--color-border) !important;
+  color: var(--color-fg) !important;
+}
+
+.theme-picker .app-header .header-logo {
+  color: var(--color-fg) !important;
+  text-transform: uppercase;
+}
+.theme-picker .app-header .header-logo span {
+  color: var(--color-fg) !important;
+}
+
+.theme-picker .app-header .header-name {
+  color: var(--color-fg) !important;
+}
+
+.theme-picker .app-header .header-role {
+  color: var(--color-muted) !important;
+}
+
+.theme-picker .app-header .header-avatar {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+}
+
+.theme-picker .app-header .header-logout {
+  color: var(--color-muted) !important;
+}
+.theme-picker .app-header .header-logout:hover {
+  color: var(--color-fg) !important;
+  background-color: var(--color-light-gray) !important;
+}
+
+/* Bottom Nav Monochrome */
+.theme-picker .bottom-nav {
+  background: var(--color-bg) !important;
+  border-top: 1.5px solid var(--color-border) !important;
+}
+
+.theme-picker .bottom-nav .nav-item span {
+  color: var(--color-muted) !important;
+  text-decoration: none !important;
+}
+.theme-picker .bottom-nav .nav-item svg {
+  color: var(--color-muted) !important;
+}
+
+.theme-picker .bottom-nav .nav-item.active span,
+.theme-picker .bottom-nav .nav-item.active svg {
+  color: var(--color-fg) !important;
+}
+
+.theme-picker .bottom-nav .nav-item:hover span,
+.theme-picker .bottom-nav .nav-item:hover svg {
+  color: var(--color-fg) !important;
+}
+
+/* Page and cards layout */
+.theme-picker .page {
+  background-color: var(--color-bg) !important;
+  color: var(--color-fg) !important;
+}
+
+.theme-picker .page-title {
+  color: var(--color-fg) !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+
+.theme-picker .card {
+  background-color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important; /* Minimalist B&W styling */
+  color: var(--color-fg) !important;
+  box-shadow: none !important;
+}
+
+/* Align B&W Buttons with icons */
+.picker-btn-assign,
+.picker-btn-view,
+.picker-btn-complete,
+.picker-btn-confirm,
+.picker-btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Inline Flagging Box in B&W Theme */
+.picker-flag-box {
+  padding: 10px;
+  background-color: var(--color-light-gray);
+  border: 1.5px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.picker-flag-textarea {
+  width: 100%;
+  height: 60px;
+  border: 1.5px solid var(--color-border);
+  padding: 6px;
+  font-size: 12px;
+  outline: none;
+  resize: none;
+  font-family: var(--font-picker);
+}
+
+.picker-flag-textarea:focus {
+  background-color: var(--color-bg);
+}
+
+.picker-flag-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.picker-btn-flag-submit {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.picker-btn-flag-submit:hover {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.picker-btn-flag-cancel {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  border: 1.5px solid transparent;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.picker-btn-flag-cancel:hover {
+  text-decoration: underline;
+}
+
+/* Top Header logo image override for Picker B&W theme */
+.theme-picker .header-logo-img {
+  height: 22px;
+  max-width: 120px;
+  filter: brightness(0); /* Make green SVG monochrome black */
+  display: block;
+}
+
+/* Logout confirmation button styling */
+.theme-picker .logout-confirm-btn {
+  font-family: var(--font-picker);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-radius: 0;
+  transition: all 0.1s ease;
+}
+
+.theme-picker .logout-confirm-btn.confirm {
+  background-color: var(--color-fg);
+  color: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+}
+
+.theme-picker .logout-confirm-btn.confirm:hover {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.theme-picker .logout-confirm-btn.cancel {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  border: 1.5px solid transparent;
+}
+
+.theme-picker .logout-confirm-btn.cancel:hover {
+  text-decoration: underline;
+}
+
+
+
+
