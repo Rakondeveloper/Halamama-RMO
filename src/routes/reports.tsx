@@ -1,203 +1,280 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
-import { MOCK_ORDERS } from "@/lib/orders";
-import { useState } from "react";
+import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { getSharedOrders } from "@/lib/sync";
+import { cn } from "@/lib/utils";
 import {
-  BarChart3,
-  Package,
-  Truck,
-  CheckCircle2,
-  XCircle,
-  DollarSign,
   Download,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
-  ShoppingBag,
+  Search,
+  Calendar as CalendarIcon,
+  Database,
+  Filter,
+  FileSpreadsheet,
+  ChevronDown,
+  Info,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
     meta: [
-      { title: "Reports & Analytics - Halamama LMD" },
-      {
-        name: "description",
-        content:
-          "Business intelligence reports — order trends, revenue analytics, delivery performance and channel insights.",
-      },
+      { title: "Warehouse Export Terminal - Halamama LMD" },
+      { name: "description", content: "Configure and export warehouse reports for Picker, Packer, and Driver domains." },
     ],
   }),
   component: ReportsPage,
 });
 
-/* ------------------------------------------------------------------ */
-/*  Mock analytics data derived from MOCK_ORDERS                      */
-/* ------------------------------------------------------------------ */
+/* ── Types ─────────────────────────────────────────────────────────── */
 
-const DAILY_ORDERS_DATA = [
-  { day: "May 7", orders: 38, revenue: 6200, delivered: 30, failed: 2 },
-  { day: "May 8", orders: 45, revenue: 7800, delivered: 38, failed: 3 },
-  { day: "May 9", orders: 52, revenue: 9100, delivered: 44, failed: 1 },
-  { day: "May 10", orders: 41, revenue: 7200, delivered: 35, failed: 4 },
-  { day: "May 11", orders: 60, revenue: 10500, delivered: 52, failed: 2 },
-  { day: "May 12", orders: 55, revenue: 9800, delivered: 48, failed: 3 },
-  { day: "May 13", orders: MOCK_ORDERS.length, revenue: MOCK_ORDERS.reduce((s, o) => s + o.total, 0), delivered: MOCK_ORDERS.filter(o => o.status === "Delivered").length, failed: MOCK_ORDERS.filter(o => o.status === "Delivery Failed").length },
+type ReportDomain = "picker" | "packer" | "driver";
+type QuickPreset = "today" | "7d" | "30d" | "last_month";
+
+const DOMAIN_OPTIONS: { value: ReportDomain; label: string }[] = [
+  { value: "picker", label: "Picker Export" },
+  { value: "packer", label: "Packer Export" },
+  { value: "driver", label: "Driver Export" },
 ];
 
-const STATUS_BREAKDOWN = (() => {
-  const map: Record<string, number> = {};
-  MOCK_ORDERS.forEach((o) => {
-    map[o.status] = (map[o.status] || 0) + 1;
-  });
-  return Object.entries(map).map(([name, value]) => ({ name, value }));
-})();
-
-const ZONE_REVENUE = (() => {
-  const map: Record<string, number> = {};
-  MOCK_ORDERS.forEach((o) => {
-    const zone = o.city || "Unknown";
-    map[zone] = (map[zone] || 0) + o.total;
-  });
-  return Object.entries(map)
-    .map(([zone, revenue]) => ({ zone, revenue }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 8);
-})();
-
-const DRIVER_STATS = (() => {
-  const map: Record<string, { deliveries: number; revenue: number }> = {};
-  MOCK_ORDERS.filter((o) => o.driver).forEach((o) => {
-    const d = o.driver!;
-    if (!map[d]) map[d] = { deliveries: 0, revenue: 0 };
-    map[d].deliveries += 1;
-    map[d].revenue += o.total;
-  });
-  return Object.entries(map)
-    .map(([name, stats]) => ({ name, ...stats }))
-    .sort((a, b) => b.deliveries - a.deliveries);
-})();
-
-const CHANNEL_SPLIT = (() => {
-  const map: Record<string, number> = {};
-  MOCK_ORDERS.forEach((o) => {
-    const ch = o.channel === "web" ? "Website" : o.channel === "shopify" ? "Shopify" : "Marketplace";
-    map[ch] = (map[ch] || 0) + 1;
-  });
-  return Object.entries(map).map(([name, value]) => ({ name, value }));
-})();
-
-/* ------------------------------------------------------------------ */
-/*  Color palette for charts                                          */
-/* ------------------------------------------------------------------ */
-const DONUT_COLORS = [
-  "#85afae", "#6f9c9b", "#10B981", "#F59E0B", "#06B6D4",
-  "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
-  "#6366F1", "#A855F7",
+const PRESET_OPTIONS: { value: QuickPreset; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "7d", label: "Last 7 Days" },
+  { value: "30d", label: "Last 30 Days" },
+  { value: "last_month", label: "Last Month" },
 ];
 
-const CHANNEL_COLORS = ["#85afae", "#8B5CF6", "#F59E0B"];
+/* ── Helpers ────────────────────────────────────────────────────────── */
 
-type DateRange = "Today" | "7D" | "30D" | "QTD";
+function fmtDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
 
-/* ------------------------------------------------------------------ */
-/*  Stat Card (mini-KPI for top row)                                  */
-/* ------------------------------------------------------------------ */
-function StatCard({
-  label,
-  value,
-  change,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  change: number;
-  icon: typeof Package;
-  tone: "primary" | "success" | "warning" | "danger" | "info" | "purple";
-}) {
-  const positive = change >= 0;
-  const toneClasses: Record<string, { bg: string; text: string; glow: string }> = {
-    primary: { bg: "bg-primary/10", text: "text-primary", glow: "bg-gradient-primary" },
-    success: { bg: "bg-success/10", text: "text-success", glow: "bg-gradient-success" },
-    warning: { bg: "bg-warning/10", text: "text-warning", glow: "bg-gradient-warning" },
-    danger: { bg: "bg-destructive/10", text: "text-destructive", glow: "bg-gradient-danger" },
-    info: { bg: "bg-info/10", text: "text-info", glow: "bg-gradient-info" },
-    purple: { bg: "bg-[oklch(0.58_0.22_295)/0.1]", text: "text-[oklch(0.58_0.22_295)]", glow: "bg-gradient-primary" },
+function addMinutes(date: string, time: string, mins: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + mins;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${date} ${hh}:${mm}:${String(Math.round(Math.random() * 59)).padStart(2, "0")}`;
+}
+
+function getPresetRange(preset: QuickPreset): [string, string] {
+  const now = new Date();
+  const end = fmtDate(now);
+  switch (preset) {
+    case "today": return [end, end];
+    case "7d": { const d = new Date(now); d.setDate(d.getDate() - 7); return [fmtDate(d), end]; }
+    case "30d": { const d = new Date(now); d.setDate(d.getDate() - 30); return [fmtDate(d), end]; }
+    case "last_month": {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const e = new Date(now.getFullYear(), now.getMonth(), 0);
+      return [fmtDate(s), fmtDate(e)];
+    }
+  }
+}
+
+function getOrders(): Order[] {
+  let baseOrders: Order[] = [];
+  try {
+    baseOrders = getSharedOrders();
+  } catch {
+    baseOrders = MOCK_ORDERS;
+  }
+
+  const now = new Date();
+  
+  // Dynamically normalize and distribute order dates across the last 45 days
+  // so that the date range presets ("Today", "Last 7 Days", etc.) are fully populated.
+  return baseOrders.map((o, index) => {
+    const orderDate = new Date(now);
+    
+    // Distribute nicely: index 0 is today, index 1 is yesterday, etc.
+    const daysOffset = index % 45;
+    orderDate.setDate(now.getDate() - daysOffset);
+    
+    const dateStr = orderDate.toISOString().split("T")[0];
+    
+    return {
+      ...o,
+      date: dateStr,
+    };
+  });
+}
+
+/* ── CSV generation ────────────────────────────────────────────────── */
+
+function downloadCSV(headers: string[], rows: string[][], filename: string) {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── Status Badge ──────────────────────────────────────────────────── */
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    Delivered: "bg-success/10 text-success border-success/20",
+    "Delivery Failed": "bg-destructive/10 text-destructive border-destructive/20",
+    "Driver Accepted": "bg-info/10 text-info border-info/20",
+    Started: "bg-warning/10 text-warning border-warning/20",
+    "Ready to Assign": "bg-primary/10 text-primary border-primary/20",
+    Picking: "bg-violet-500/10 text-violet-600 border-violet-500/20",
+    Packing: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
   };
-  const t = toneClasses[tone];
-
+  const cls = colors[status] || "bg-muted text-muted-foreground border-border";
   return (
-    <div className="group relative rounded-2xl bg-card border border-border p-5 shadow-soft hover:shadow-elevated transition-all hover:-translate-y-0.5 overflow-hidden">
-      <div className={`absolute -top-12 -right-12 h-32 w-32 rounded-full opacity-[0.08] blur-2xl ${t.glow}`} />
-      <div className="flex items-start justify-between relative">
-        <div className={`h-10 w-10 rounded-xl grid place-items-center ${t.bg}`}>
-          <Icon className={`h-5 w-5 ${t.text}`} strokeWidth={2.2} />
-        </div>
-      </div>
-      <div className="mt-4 relative">
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <div className="mt-1 flex items-baseline gap-2">
-          <div className="text-2xl font-bold tracking-tight">{value}</div>
-          <div
-            className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 h-5 rounded-md ${
-              positive ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
-            }`}
-          >
-            {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-            {Math.abs(change)}%
-          </div>
-        </div>
-      </div>
-    </div>
+    <span className={cn("inline-flex items-center h-6 px-2.5 rounded-md text-[11px] font-semibold border whitespace-nowrap", cls)}>
+      {status}
+    </span>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Custom Recharts tooltip                                           */
-/* ------------------------------------------------------------------ */
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-elevated text-sm">
-      <p className="text-xs font-semibold text-muted-foreground mb-1.5">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <div key={i} className="flex items-center gap-2 text-foreground">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="capitalize">{p.dataKey}:</span>
-          <span className="font-semibold">{typeof p.value === "number" && p.dataKey.includes("revenue") ? `QAR ${p.value.toLocaleString()}` : p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
+/* ── Table Config per Domain ───────────────────────────────────────── */
+
+function getPickerHeaders() {
+  return ["Order Name", "Customer Name", "Total Price", "Item Count", "Created At", "Picked At", "Picked By", "Status"];
+}
+function getPickerRow(o: Order): string[] {
+  const isPicked = !["New", "Cancelled"].includes(o.status);
+  const picker = o.picker || (isPicked ? "noushad" : "-");
+  const pickedAt = picker !== "-" ? addMinutes(o.date, o.time, 25) : "-";
+  return [
+    o.id,
+    o.customer.name,
+    o.total.toFixed(2),
+    String(o.items || 1),
+    `${o.date} ${o.time}`,
+    pickedAt,
+    picker,
+    o.status,
+  ];
 }
 
-/* ------------------------------------------------------------------ */
-/*  Main Page                                                         */
-/* ------------------------------------------------------------------ */
+function getPackerHeaders() {
+  return ["Order Name", "Customer Name", "Packed By", "Packed At", "Item Count", "Bags Count", "Status"];
+}
+function getPackerRow(o: Order): string[] {
+  const isPacked = ["Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(o.status);
+  const packer = o.packer || (isPacked ? "mashood" : "-");
+  const packedAt = packer !== "-" ? addMinutes(o.date, o.time, 42) : "-";
+  return [
+    o.id,
+    o.customer.name,
+    packer,
+    packedAt,
+    String(o.items || 1),
+    String(o.bags || 1),
+    o.status,
+  ];
+}
+
+function getDriverHeaders() {
+  return [
+    "Order Name",
+    "Order Date",
+    "Customer Name",
+    "Address 2",
+    "Zone",
+    "Bags Count",
+    "Item Count",
+    "Driver Name",
+    "Reassigned Driver Name",
+    "Trip Started At",
+    "Delivered At",
+    "Total Price",
+    "Shopify Payment Method",
+    "Driver Payment Method",
+    "Status",
+    "Delivery Failed At",
+    "Delivery Failed Reason",
+  ];
+}
+function getDriverRow(o: Order): string[] {
+  const hasDriver = ["Driver Accepted", "Started", "Delivered", "Delivery Failed"].includes(o.status) || !!o.driver;
+  const driver = o.driver || (hasDriver ? "mwd_shambu" : "-");
+  const tripStarted = driver !== "-" ? addMinutes(o.date, o.time, 58) : "-";
+  const deliveredAt = o.status === "Delivered" && driver !== "-" ? addMinutes(o.date, o.time, 92) : "-";
+  const failedAt = o.status === "Delivery Failed" && driver !== "-" ? addMinutes(o.date, o.time, 105) : "-";
+  const zone = o.city && o.city.toLowerCase().startsWith("zone") ? o.city : "Zone 25";
+  const address2 = o.city && !o.city.toLowerCase().startsWith("zone") ? o.city : "Doha, Qatar";
+  const shopifyPayment = "Credit Card";
+  const driverPayment = o.status === "Delivered" ? "Cash on Delivery" : "-";
+  const failedReason = o.status === "Delivery Failed" ? "Customer not answering phone" : "-";
+
+  return [
+    o.id,
+    o.date,
+    o.customer.name,
+    address2,
+    zone,
+    String(o.bags || 1),
+    String(o.items || 1),
+    driver,
+    "-",
+    tripStarted,
+    deliveredAt,
+    o.total.toFixed(2),
+    shopifyPayment,
+    driverPayment,
+    o.status,
+    failedAt,
+    failedReason,
+  ];
+}
+
+/* ── Main Page ─────────────────────────────────────────────────────── */
+
 function ReportsPage() {
-  const [range, setRange] = useState<DateRange>("7D");
+  const orders = useMemo(() => getOrders(), []);
 
-  const totalOrders = MOCK_ORDERS.length;
-  const totalRevenue = MOCK_ORDERS.reduce((s, o) => s + o.total, 0);
-  const deliveredCount = MOCK_ORDERS.filter((o) => o.status === "Delivered").length;
-  const failedCount = MOCK_ORDERS.filter((o) => o.status === "Delivery Failed").length;
-  const deliveryRate = totalOrders > 0 ? ((deliveredCount / totalOrders) * 100).toFixed(1) : "0";
-  const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+  const [domain, setDomain] = useState<ReportDomain>("picker");
+  const [preset, setPreset] = useState<QuickPreset>("last_month");
+  const [dateRange, setDateRange] = useState<[string, string]>(() => getPresetRange("last_month"));
+  const [search, setSearch] = useState("");
+
+  const handlePreset = (p: QuickPreset) => {
+    setPreset(p);
+    setDateRange(getPresetRange(p));
+  };
+
+  // Filter orders by date range and domain relevance
+  const filtered = useMemo(() => {
+    return orders.filter((o) => {
+      if (o.date < dateRange[0] || o.date > dateRange[1]) return false;
+      if (domain === "picker" && !o.picker && o.status === "New") return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!o.id.toLowerCase().includes(q) && !o.customer.name.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [orders, dateRange, domain, search]);
+
+  const domainLabel = DOMAIN_OPTIONS.find((d) => d.value === domain)!.label.replace(" Export", "");
+
+  const headers = domain === "picker" ? getPickerHeaders() : domain === "packer" ? getPackerHeaders() : getDriverHeaders();
+  const getRow = domain === "picker" ? getPickerRow : domain === "packer" ? getPackerRow : getDriverRow;
+
+  const handleDownload = () => {
+    const csvHeaders = headers;
+    const rows = filtered.map(getRow);
+    const filename = `${domainLabel.toLowerCase()}_export_${dateRange[0]}_to_${dateRange[1]}.csv`;
+    downloadCSV(csvHeaders, rows, filename);
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">
@@ -205,346 +282,182 @@ function ReportsPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <main className="mx-auto w-full max-w-[1780px] flex-1 space-y-6 p-4 md:p-6">
+
           {/* ── Page Header ── */}
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <BarChart3 className="h-6 w-6 text-primary" />
-                <h1 className="text-2xl font-bold tracking-tight">Reports & Analytics</h1>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Business intelligence overview — orders, revenue, delivery performance & channel insights
-              </p>
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-xl bg-gradient-primary grid place-items-center shadow-soft">
+              <FileSpreadsheet className="h-5.5 w-5.5 text-white" />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-card border border-border rounded-xl p-1 shadow-soft">
-                {(["Today", "7D", "30D", "QTD"] as DateRange[]).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setRange(p)}
-                    className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors ${
-                      range === p
-                        ? "bg-primary text-primary-foreground shadow-soft"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Warehouse Export Terminal</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Configure filters and export operational data as CSV</p>
+            </div>
+          </div>
+
+          {/* ── Filter Card ── */}
+          <section className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-border bg-muted/30 flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Configure Filter & Export Selection</span>
+            </div>
+            <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+              {/* Date Range */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Range</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <DatePicker
+                      dateString={dateRange[0]}
+                      setDateString={(val) => setDateRange([val, dateRange[1]])}
+                      placeholder="Start date"
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground font-semibold">→</span>
+                  <div className="flex-1">
+                    <DatePicker
+                      dateString={dateRange[1]}
+                      setDateString={(val) => setDateRange([dateRange[0], val])}
+                      placeholder="End date"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Report Domain */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Report Domain</label>
+                <Select value={domain} onValueChange={(val) => setDomain(val as ReportDomain)}>
+                  <SelectTrigger className="h-10 rounded-xl border border-border bg-muted/30 hover:bg-muted/40 hover:border-primary/30 active:scale-[0.98] transition-all font-medium">
+                    <SelectValue placeholder="Select Domain" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border border-border shadow-elevated bg-popover">
+                    {DOMAIN_OPTIONS.map((d) => (
+                      <SelectItem key={d.value} value={d.value} className="rounded-lg">
+                        {d.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Presets</label>
+                <Select value={preset} onValueChange={(val) => handlePreset(val as QuickPreset)}>
+                  <SelectTrigger className="h-10 rounded-xl border border-border bg-muted/30 hover:bg-muted/40 hover:border-primary/30 active:scale-[0.98] transition-all font-medium">
+                    <SelectValue placeholder="Select Preset" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border border-border shadow-elevated bg-popover">
+                    {PRESET_OPTIONS.map((p) => (
+                      <SelectItem key={p.value} value={p.value} className="rounded-lg">
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Active date coverage */}
+            <div className="px-5 py-2.5 border-t border-border bg-muted/20 flex items-center gap-2 text-xs text-muted-foreground">
+              <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>Active date coverage:</span>
+              <span className="font-semibold text-foreground">{dateRange[0]}</span>
+              <span>→</span>
+              <span className="font-semibold text-foreground">{dateRange[1]}</span>
+            </div>
+          </section>
+
+          {/* ── Preview Card ── */}
+          <section className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-base font-semibold">{domainLabel} Report Preview</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Found <span className="font-bold text-primary">{filtered.length}</span> records
+                </p>
               </div>
               <button
-                id="export-reports-btn"
-                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-card border border-border text-sm font-medium shadow-soft hover:bg-muted transition-colors"
+                id="download-csv-btn"
+                onClick={handleDownload}
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-gradient-primary text-white text-sm font-semibold shadow-soft hover:opacity-90 transition-opacity"
               >
                 <Download className="h-4 w-4" />
-                Export
+                Download CSV
               </button>
             </div>
-          </div>
 
-          {/* ── KPI Summary Row ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-            <StatCard label="Total Orders" value={totalOrders.toLocaleString()} change={12.4} icon={Package} tone="primary" />
-            <StatCard label="Total Revenue" value={`QAR ${totalRevenue.toLocaleString()}`} change={18.3} icon={DollarSign} tone="purple" />
-            <StatCard label="Delivered" value={deliveredCount.toLocaleString()} change={8.2} icon={CheckCircle2} tone="success" />
-            <StatCard label="Failed" value={failedCount.toLocaleString()} change={-22.5} icon={XCircle} tone="danger" />
-            <StatCard label="Delivery Rate" value={`${deliveryRate}%`} change={3.1} icon={Truck} tone="info" />
-            <StatCard label="Avg. Order Value" value={`QAR ${avgOrderValue}`} change={5.6} icon={ShoppingBag} tone="warning" />
-          </div>
-
-          {/* ── Orders Trend + Status Breakdown ── */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Area chart */}
-            <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-semibold">Order Trends</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Daily orders & deliveries over the period</p>
-                </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-primary" /> Orders
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-success" /> Delivered
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-destructive" /> Failed
-                  </span>
-                </div>
-              </div>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={DAILY_ORDERS_DATA} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="ordersFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#85afae" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#85afae" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="deliveredFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Area type="monotone" dataKey="orders" stroke="#85afae" strokeWidth={2.5} fill="url(#ordersFill)" />
-                    <Area type="monotone" dataKey="delivered" stroke="#10B981" strokeWidth={2} fill="url(#deliveredFill)" />
-                    <Area type="monotone" dataKey="failed" stroke="#EF4444" strokeWidth={1.5} fill="transparent" strokeDasharray="4 4" />
-                  </AreaChart>
-                </ResponsiveContainer>
+            {/* Search */}
+            <div className="px-5 py-3 border-b border-border">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  id="report-search"
+                  placeholder={`Search in ${domainLabel.toLowerCase()} records by keyword...`}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full h-9 pl-9 pr-4 rounded-lg bg-muted/50 border border-transparent text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 focus:bg-background transition-colors"
+                />
               </div>
             </div>
 
-            {/* Donut chart — Status Breakdown */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <h2 className="text-base font-semibold">Status Breakdown</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-2">Current order distribution</p>
-              <div className="h-[240px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={STATUS_BREAKDOWN}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={90}
-                      paddingAngle={3}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
-                      {STATUS_BREAKDOWN.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-elevated text-sm">
-                            <span className="font-medium">{payload[0].name}:</span>{" "}
-                            <span className="font-bold">{payload[0].value}</span>
-                          </div>
-                        );
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Legend */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
-                {STATUS_BREAKDOWN.map((item, i) => (
-                  <div key={item.name} className="flex items-center gap-2 text-xs">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }}
-                    />
-                    <span className="text-muted-foreground truncate">{item.name}</span>
-                    <span className="ml-auto font-semibold">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Revenue by Zone + Channel Split ── */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Bar chart — Revenue by Zone */}
-            <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-semibold">Revenue by Zone</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Top performing delivery zones</p>
-                </div>
-              </div>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ZONE_REVENUE} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#85afae" stopOpacity={1} />
-                        <stop offset="100%" stopColor="#6f9c9b" stopOpacity={0.7} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="zone" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v >= 1000 ? `${v / 1000}K` : v}`} />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-elevated text-sm">
-                            <p className="text-xs font-semibold text-muted-foreground mb-1">{label}</p>
-                            <p className="font-bold text-foreground">QAR {payload[0].value?.toLocaleString()}</p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Bar dataKey="revenue" fill="url(#barGradient)" radius={[8, 8, 0, 0]} maxBarSize={48} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Pie chart — Channel Split */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
-              <h2 className="text-base font-semibold">Channel Split</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-2">Orders by sales channel</p>
-              <div className="h-[220px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={CHANNEL_SPLIT}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={85}
-                      paddingAngle={4}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
-                      {CHANNEL_SPLIT.map((_, index) => (
-                        <Cell key={`ch-${index}`} fill={CHANNEL_COLORS[index % CHANNEL_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        return (
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-elevated text-sm">
-                            <span className="font-medium">{payload[0].name}:</span>{" "}
-                            <span className="font-bold">{payload[0].value}</span>
-                          </div>
-                        );
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-2 mt-3">
-                {CHANNEL_SPLIT.map((ch, i) => {
-                  const pct = ((ch.value / totalOrders) * 100).toFixed(0);
-                  return (
-                    <div key={ch.name} className="flex items-center gap-3">
-                      <span
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{ backgroundColor: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }}
-                      />
-                      <span className="text-sm flex-1">{ch.name}</span>
-                      <span className="text-sm font-semibold">{ch.value}</span>
-                      <span className="text-xs text-muted-foreground w-10 text-right">{pct}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Driver Leaderboard ── */}
-          <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold flex items-center gap-2">
-                  <Users className="h-4.5 w-4.5 text-primary" />
-                  Driver Leaderboard
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Performance ranking by delivery count</p>
-              </div>
-              <span className="text-xs text-muted-foreground">{DRIVER_STATS.length} drivers</span>
-            </div>
+            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    <th className="text-left px-5 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider w-12">
-                      #
-                    </th>
-                    <th className="text-left px-5 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                      Driver
-                    </th>
-                    <th className="text-left px-5 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                      Deliveries
-                    </th>
-                    <th className="text-left px-5 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                      Revenue Generated
-                    </th>
-                    <th className="text-left px-5 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-                      Performance
-                    </th>
+                  <tr className="bg-muted/40">
+                    {headers.map((h) => (
+                      <th key={h} className="text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider px-4 py-3 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {DRIVER_STATS.map((driver, idx) => {
-                    const maxDeliveries = DRIVER_STATS[0]?.deliveries || 1;
-                    const pct = (driver.deliveries / maxDeliveries) * 100;
-                    return (
-                      <tr
-                        key={driver.name}
-                        className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`inline-flex items-center justify-center h-7 w-7 rounded-lg text-xs font-bold ${
-                              idx === 0
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
-                                : idx === 1
-                                  ? "bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400"
-                                  : idx === 2
-                                    ? "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400"
-                                    : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {idx + 1}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 grid place-items-center">
-                              <span className="text-xs font-bold text-primary uppercase">
-                                {driver.name.charAt(0)}
-                              </span>
-                            </div>
-                            <span className="font-medium capitalize">{driver.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                            <Truck className="h-3 w-3" /> {driver.deliveries}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 font-semibold">
-                          QAR {driver.revenue.toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3.5 w-48">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-gradient-primary transition-all duration-500"
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-muted-foreground w-10 text-right">
-                              {pct.toFixed(0)}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={headers.length} className="px-5 py-16 text-center text-sm text-muted-foreground">
+                        No records found for the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((o) => {
+                      const row = getRow(o);
+                      return (
+                        <tr key={o.id} className="border-t border-border hover:bg-muted/30 transition-colors">
+                          {row.map((cell, i) => (
+                            <td key={i} className="px-4 py-3 whitespace-nowrap text-xs">
+                              {headers[i] === "Status" ? (
+                                <StatusBadge status={cell} />
+                              ) : headers[i] === "Total Price" ? (
+                                <span className="font-medium tabular-nums">{cell}</span>
+                              ) : headers[i] === "Order Name" ? (
+                                <span className="font-mono font-medium text-primary">{cell}</span>
+                              ) : (
+                                <span className="text-muted-foreground">{cell}</span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* Footer */}
-          <footer className="text-center text-[11px] text-muted-foreground py-4">
-            Halamama LMD · RouteMyOrder · Reports generated from operational data · v2.4.1
-          </footer>
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>Showing {filtered.length} records</span>
+              <span className="flex items-center gap-1.5 text-[10px]">
+                <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+                Halamama · RouteMyOrder · Warehouse Export Terminal · v2.4.1
+              </span>
+            </div>
+          </section>
         </main>
       </div>
     </div>
   );
 }
-

@@ -4,9 +4,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { EnrichedOrder } from "@/lib/orders";
+import type { EnrichedOrder, OrderReturn } from "@/lib/orders";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { updateSharedOrder, broadcastChange } from "@/lib/sync";
+import { toast } from "sonner";
 
 export function CreateReturnDialog({
   order,
@@ -19,6 +21,8 @@ export function CreateReturnDialog({
 }) {
   const [actionType, setActionType] = useState<"refund" | "replace">("refund");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
 
   const toggleItem = (id: string) => {
     const next = new Set(selectedItems);
@@ -27,10 +31,50 @@ export function CreateReturnDialog({
     setSelectedItems(next);
   };
 
+  const handleSubmit = () => {
+    if (selectedItems.size === 0) return;
+
+    const newReturnItems: OrderReturn[] = [];
+    for (const itemId of selectedItems) {
+      const item = order.itemsList.find((i) => i.id === itemId);
+      if (!item) continue;
+      newReturnItems.push({
+        id: `ret-${order.id}-${Date.now()}-${item.sku}`,
+        itemName: item.name,
+        sku: item.sku,
+        type: actionType === "refund" ? "return" : "replacement",
+        qty: item.qty,
+        status: "pending",
+        source: order.channel === "shopify" ? "Shopify" : "Web",
+        reason: reason || undefined,
+        adminNote: notes || undefined,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    updateSharedOrder(order.id, (o) => {
+      const existing = o.returnItems ?? [];
+      o.returnItems = [...existing, ...newReturnItems];
+      const totalReturnCount = o.returnItems.length;
+      o.returns = { type: "Return" as const, count: totalReturnCount };
+    });
+    broadcastChange();
+
+    toast.success(
+      `${newReturnItems.length} return item${newReturnItems.length > 1 ? "s" : ""} created successfully.`,
+    );
+
+    // Reset and close
+    setSelectedItems(new Set());
+    setReason("");
+    setNotes("");
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-border/50">
-        <div className="p-6">
+      <DialogContent className="w-[95vw] sm:w-full sm:max-w-[500px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-border/50 flex flex-col max-h-[90vh]">
+        <div className="p-5 sm:p-6 overflow-y-auto">
           <DialogHeader className="mb-6">
             <DialogTitle className="text-xl">Create Return / Replacement</DialogTitle>
             <DialogDescription>
@@ -101,7 +145,7 @@ export function CreateReturnDialog({
               {/* Reason Dropdown */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Reason</Label>
-                <Select>
+                <Select value={reason} onValueChange={setReason}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select reason" />
                   </SelectTrigger>
@@ -119,17 +163,22 @@ export function CreateReturnDialog({
             {/* Notes */}
             <div className="space-y-3">
               <Label className="text-base font-semibold">Notes (optional)</Label>
-              <Textarea placeholder="Additional details..." className="min-h-[100px] resize-none bg-muted/10" />
+              <Textarea
+                placeholder="Additional details..."
+                className="min-h-[100px] resize-none bg-muted/10"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
             </div>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 border-t border-border bg-muted/30 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border bg-muted/30 px-5 py-4 sm:px-6 shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button disabled={selectedItems.size === 0}>
+          <Button disabled={selectedItems.size === 0} onClick={handleSubmit}>
             {actionType === "refund" ? "Create Refund" : "Create Replacement"}
           </Button>
         </div>

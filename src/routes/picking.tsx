@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PickingTable } from "@/components/orders/tables/PickingTable";
-import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { type Order } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/picking")({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/picking")({
 function PickingPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const { data: allOrders = [] } = useOrders();
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
@@ -28,7 +30,7 @@ function PickingPage() {
   };
 
   // For demo, we just filter for orders that are in some Picking state or just show some orders
-  const orders = MOCK_ORDERS.filter(o => o.status === "New" || o.status === "Unfulfilled");
+  const orders = allOrders.filter(o => o.status === "New" || o.status === "Unfulfilled");
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">

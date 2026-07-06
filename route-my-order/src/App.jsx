@@ -12,6 +12,8 @@ import { PickerDashboard } from './pages/picker/PickerDashboard'
 import { PackerDashboard } from './pages/packer/PackerDashboard'
 import { DriverDashboard } from './pages/driver/DriverDashboard'
 import { PickerHistory } from './pages/picker/PickerHistory'
+import { PackerHistory } from './pages/packer/PackerHistory'
+import { DriverHistory } from './pages/driver/DriverHistory'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth()
@@ -67,6 +69,10 @@ export default function App() {
           <Route path="/history" element={
             user.role === 'picker' ? (
               <PickerHistory />
+            ) : user.role === 'packer' ? (
+              <PackerHistory />
+            ) : user.role === 'driver' ? (
+              <DriverHistory />
             ) : (
               <div className="page">
                 <h1 className="page-title">History</h1>

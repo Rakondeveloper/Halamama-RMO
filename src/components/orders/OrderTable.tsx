@@ -7,14 +7,12 @@ import { OrderTableRow } from "./OrderTableRow";
 function getDynamicColumn(activeTab: LegacyTabId): "driver" | "picker" | "packer" | null {
   switch (activeTab) {
     case "Unfulfilled":
-    case "Driver Accepted":
-    case "Started":
+    case "In Delivery":
     case "Delivered":
     case "Delivery Failed":
+    case "Installation":
     case "All":
       return "driver";
-    case "Picked":
-      return "picker";
     case "Ready to Assign":
       return "packer";
     default:
@@ -34,6 +32,9 @@ export function OrderTable({
   onViewOrder,
   loading,
   activeTab,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: {
   orders: Order[];
   selectedIds: Set<string>;
@@ -46,6 +47,9 @@ export function OrderTable({
   onViewOrder: (order: Order) => void;
   loading: boolean;
   activeTab?: LegacyTabId;
+  sortColumn?: "id" | "date" | "customer" | "tat" | "total" | null;
+  sortDirection?: "asc" | "desc";
+  onSort?: (col: "id" | "date" | "customer" | "tat" | "total") => void;
 }) {
   const dynamicCol = getDynamicColumn(activeTab ?? "All");
 
@@ -68,10 +72,12 @@ export function OrderTable({
   }
 
   const dynamicLabel = dynamicCol === "driver" ? "Driver" : dynamicCol === "picker" ? "Picker" : dynamicCol === "packer" ? "Packer" : null;
+  const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
+  const isPacking = activeTab === "Packing";
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-[1100px] border-collapse text-sm">
+      <table className="w-full min-w-[1200px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/30 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <th className="w-12 py-3 pl-3 pr-0">
@@ -83,26 +89,96 @@ export function OrderTable({
                 />
               </div>
             </th>
-            <th className="py-3 pr-3 font-semibold">Order</th>
-            <th className="py-3 pr-3 font-semibold">TAT</th>
             <th className="py-3 pr-3 font-semibold">
-              <span className="inline-flex items-center gap-1">
-                Date & Time
-                <span className="text-muted-foreground/50">↕</span>
-              </span>
+              <button
+                onClick={() => onSort?.("id")}
+                className="flex items-center gap-1 hover:text-foreground font-semibold uppercase tracking-wide focus:outline-none"
+              >
+                Order
+                <span className="text-muted-foreground/50 text-[10px]">
+                  {sortColumn === "id" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                </span>
+              </button>
             </th>
-            <th className="py-3 pr-3 font-semibold">Customer</th>
-            <th className="py-3 pr-3 font-semibold">Channel</th>
+            <th className="py-3 pr-3 font-semibold">
+              <button
+                onClick={() => onSort?.("tat")}
+                className="flex items-center gap-1 hover:text-foreground font-semibold uppercase tracking-wide focus:outline-none"
+              >
+                TAT
+                <span className="text-muted-foreground/50 text-[10px]">
+                  {sortColumn === "tat" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                </span>
+              </button>
+            </th>
+            <th className="py-3 pr-3 font-semibold">
+              <button
+                onClick={() => onSort?.("date")}
+                className="flex items-center gap-1 hover:text-foreground font-semibold uppercase tracking-wide focus:outline-none"
+              >
+                Date & Time
+                <span className="text-muted-foreground/50 text-[10px]">
+                  {sortColumn === "date" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                </span>
+              </button>
+            </th>
+            <th className="py-3 pr-3 font-semibold">
+              <button
+                onClick={() => onSort?.("customer")}
+                className="flex items-center gap-1 hover:text-foreground font-semibold uppercase tracking-wide focus:outline-none"
+              >
+                Customer
+                <span className="text-muted-foreground/50 text-[10px]">
+                  {sortColumn === "customer" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                </span>
+              </button>
+            </th>
+            {!isPickingOrPicked && !isPacking && (
+              <th className="py-3 pr-3 font-semibold">Channel</th>
+            )}
             <th className="py-3 pr-3 font-semibold">Items</th>
-            <th className="py-3 pr-3 font-semibold">Returns & Replacements</th>
-            <th className="py-3 pr-3 font-semibold">City</th>
-            <th className="py-3 pr-3 font-semibold">Coordinator</th>
+            {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && (
+              <th className="py-3 pr-3 font-semibold">Returns</th>
+            )}
+            {isPickingOrPicked && (
+              <>
+                <th className="py-3 pr-3 font-semibold">Picking Status</th>
+                <th className="py-3 pr-3 font-semibold">Picker</th>
+              </>
+            )}
+            {isPacking && (
+              <>
+                <th className="py-3 pr-3 font-semibold">Packing Status</th>
+                <th className="py-3 pr-3 font-semibold">Assigned Packer</th>
+                <th className="py-3 pr-3 font-semibold">Bags</th>
+              </>
+            )}
+            {!isPacking && !isPickingOrPicked && (
+              <th className="py-3 pr-3 font-semibold">City</th>
+            )}
+            {!isPickingOrPicked && !isPacking && (
+              <th className="py-3 pr-3 font-semibold">Coordinator</th>
+            )}
             {dynamicLabel && (
               <th className="py-3 pr-3 font-semibold">{dynamicLabel}</th>
             )}
-            <th className="py-3 pr-3 font-semibold">Total</th>
+            {!isPacking && (
+              <th className="py-3 pr-3 font-semibold">
+                <button
+                  onClick={() => onSort?.("total")}
+                  className="flex items-center gap-1 hover:text-foreground font-semibold uppercase tracking-wide focus:outline-none"
+                >
+                  Total
+                  <span className="text-muted-foreground/50 text-[10px]">
+                    {sortColumn === "total" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                  </span>
+                </button>
+              </th>
+            )}
             <th className="py-3 pr-3 font-semibold">Actions</th>
-            <th className="py-3 pr-3 font-semibold">Shopify Status</th>
+            {!isPacking && (
+              <th className="py-3 pr-3 font-semibold">Shopify Status</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -118,6 +194,7 @@ export function OrderTable({
               }
               onViewOrder={onViewOrder}
               dynamicCol={dynamicCol}
+              activeTab={activeTab}
             />
           ))}
         </tbody>

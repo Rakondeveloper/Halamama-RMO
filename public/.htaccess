@@ -1,9 +1,15 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /demo/order-management/
-  RewriteRule ^index\.html$ - [L]
+  
+  # Rule for RouteMyOrder App
+  RewriteCond %{REQUEST_URI} ^/demo/order-management/route-my-order/
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /demo/order-management/index.html [L]
+  RewriteRule ^(.*)$ /demo/order-management/route-my-order/index.html [L]
+
+  # Rule for Admin Dashboard App
+  RewriteCond %{REQUEST_URI} ^/demo/order-management/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ /demo/order-management/index.html [L]
 </IfModule>

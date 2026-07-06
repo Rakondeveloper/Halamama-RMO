@@ -1,10 +1,13 @@
 /**
  * Scheduled Installations Store
  *
- * A simple reactive store that holds the list of scheduled installations.
- * Both the FulfillmentSection (to schedule items) and the ScheduledInstallations
- * page (to view/manage them) share this store.
+ * A reactive store that holds the list of scheduled installations.
+ * Data is persisted to localStorage so the Picker App (route-my-order)
+ * can write items and the Admin Dashboard picks them up in real-time
+ * via the `storage` event.
  */
+
+const STORAGE_KEY = 'hm_scheduled_installations';
 
 export interface ScheduledItem {
   /** Unique id for this scheduled entry */
@@ -25,80 +28,155 @@ export interface ScheduledItem {
   scheduledAt: string;
   /** Assigned driver/installer */
   assignedDriver?: string | null;
+  /** Installation method from the product location */
+  installationMethod?: string;
 }
 
 type Listener = () => void;
 
-let _items: ScheduledItem[] = [
-  // Pre-populate with some mock data
+const DEFAULT_ITEMS: ScheduledItem[] = [
+  // Pre-populate with data matching the old dashboard screenshot
   {
     id: "si-1",
-    orderId: "HM59240",
-    productName: "Bestway Steel Pro Frame Pool Set (12' x 30\")",
-    sku: "56416",
+    orderId: "HM68229",
+    productName: "Happy Hop 6-in-1 Play Center",
+    sku: "9060",
     image: "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=100&h=100&fit=crop",
-    customerName: "ayah sukik",
+    customerName: "Sara Al Sulaiti",
     status: "Pending",
-    scheduledAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    scheduledAt: "2026-05-25T14:10:00.000Z",
+    installationMethod: "Standard Assembly (Hilal Team)",
   },
   {
     id: "si-2",
-    orderId: "HM59240",
-    productName: "Intex Prism Frame Rectangular Pool Set",
-    sku: "26790",
+    orderId: "HM68229",
+    productName: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+    sku: "561KC",
     image: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=100&h=100&fit=crop",
-    customerName: "ayah sukik",
+    customerName: "Sara Al Sulaiti",
     status: "Pending",
-    scheduledAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    scheduledAt: "2026-05-25T14:10:00.000Z",
+    installationMethod: "Main Warehouse Outdoor Installation (Specialist Team)",
   },
   {
     id: "si-3",
-    orderId: "HM60101",
-    productName: "Nip Soother With Hook (Blue)",
-    sku: "412217",
+    orderId: "HM68229",
+    productName: "Smoby Green XL Slide",
+    sku: "820304",
     image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=100&h=100&fit=crop",
-    customerName: "Maha Al-Kaabi",
+    customerName: "Sara Al Sulaiti",
     status: "Pending",
-    scheduledAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
+    scheduledAt: "2026-05-25T14:10:00.000Z",
+    installationMethod: "Virtual Stock Direct Delivery & Setup (Third-Party Partner)",
   },
   {
     id: "si-4",
-    orderId: "HM59243",
-    productName: "Happy Hop Double Water Slide – Deluxe",
-    sku: "9029",
+    orderId: "HM68258",
+    productName: "Bestway H2Ogo! Leap & Play Mega Water Park",
+    sku: "53427",
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=100&h=100&fit=crop",
-    customerName: "Layla Hassan",
-    status: "Assigned",
-    scheduledAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
-    assignedDriver: "irshad",
+    customerName: "Mouza Al Derham",
+    status: "Pending",
+    scheduledAt: "2026-05-25T16:20:00.000Z",
+    installationMethod: "Standard Assembly (Hilal Team)",
   },
   {
     id: "si-5",
-    orderId: "HM60103",
-    productName: "Bestway Flowclear Pool Cover (12ft)",
-    sku: "58034",
+    orderId: "HM68268",
+    productName: "Intex Prism Frame Rectangular Pool Set",
+    sku: "26790",
     image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
-    customerName: "Faisal Al-Marri",
+    customerName: "aisha alnaemi",
     status: "Pending",
-    scheduledAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    scheduledAt: "2026-05-26T09:30:00.000Z",
+    installationMethod: "Main Warehouse Outdoor Installation (Specialist Team)",
   },
   {
     id: "si-6",
-    orderId: "HM60104",
-    productName: "Summer Waves Frame Pool Pump 800 GPH",
-    sku: "P58800",
-    image: "https://images.unsplash.com/photo-1504309092620-4d0ec726efa4?w=100&h=100&fit=crop",
-    customerName: "Hessa Al-Jaber",
+    orderId: "HM68229",
+    productName: "Happy Hop Double Water Slide – Deluxe",
+    sku: "9029",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=100&h=100&fit=crop",
+    customerName: "Sara Al Sulaiti",
     status: "Assigned",
-    scheduledAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    assignedDriver: "farshad",
+    scheduledAt: "2026-05-25T14:10:00.000Z",
+    assignedDriver: "Omar Farooq",
+    installationMethod: "Standard Assembly (Hilal Team)",
+  },
+  {
+    id: "si-7",
+    orderId: "HM68258",
+    productName: "Bestway Flowclear Pool Cover (12ft)",
+    sku: "58034",
+    image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+    customerName: "Mouza Al Derham",
+    status: "Assigned",
+    scheduledAt: "2026-05-25T16:20:00.000Z",
+    assignedDriver: "Omar Farooq",
+    installationMethod: "Virtual Stock Direct Delivery & Setup (Third-Party Partner)",
+  },
+  {
+    id: "si-8",
+    orderId: "HM64839",
+    productName: "Nip Soother With Hook (Blue)",
+    sku: "412217",
+    image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+    customerName: "test test",
+    status: "Assigned",
+    scheduledAt: "2026-05-26T09:30:00.000Z",
+    assignedDriver: "Omar Farooq",
+    installationMethod: "Standard Assembly (Hilal Team)",
   },
 ];
 
+/** Load from localStorage, falling back to defaults on first run. */
+function _loadFromStorage(): ScheduledItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Migration: if storage has old mock data (missing installationMethod) or references old mock drivers, reset to new defaults
+      const needsMigration = parsed.some(
+        (item: any) =>
+          !item.installationMethod ||
+          item.assignedDriver === "irshad" ||
+          item.assignedDriver === "farshad" ||
+          item.assignedDriver === "driver1"
+      );
+      if (!needsMigration) {
+        return parsed;
+      }
+    }
+  } catch { /* ignore */ }
+  // First run or old mock data detected — seed defaults and persist
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ITEMS));
+  return [...DEFAULT_ITEMS];
+}
+
+let _items: ScheduledItem[] = _loadFromStorage();
+
 const _listeners: Set<Listener> = new Set();
 
+/** Persist current state to localStorage. */
+function _persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(_items));
+}
+
 function _notify() {
+  _persist();
   _listeners.forEach((fn) => fn());
+}
+
+// Listen for cross-tab writes (from Picker App)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY && e.newValue) {
+      try {
+        _items = JSON.parse(e.newValue);
+        _listeners.forEach((fn) => fn());
+      } catch { /* ignore */ }
+    }
+  });
 }
 
 /** Subscribe to store changes. Returns an unsubscribe function. */

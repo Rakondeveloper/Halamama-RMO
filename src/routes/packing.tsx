@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { PackingTable } from "@/components/orders/tables/PackingTable";
-import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { type Order } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/packing")({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/packing")({
 function PackingPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const { data: allOrders = [] } = useOrders();
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
@@ -27,7 +29,7 @@ function PackingPage() {
     navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
   };
 
-  const orders = MOCK_ORDERS.filter(o => o.status === "Picked");
+  const orders = allOrders.filter(o => o.status === "Picked");
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground">

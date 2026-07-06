@@ -128,33 +128,290 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .header-brand{display:flex;align-items:center;gap:10px}
 .header-logo{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.02em}
 .header-logo span{color:var(--primary)}
-.header-user{display:flex;align-items:center;gap:8px}
-.header-avatar{width:32px;height:32px;border-radius:50%;
-  background:linear-gradient(135deg,var(--primary),var(--secondary));
-  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
-.header-name{font-size:13px;font-weight:600;color:#fff}
-.header-role{font-size:10px;font-weight:600;color:var(--primary);text-transform:uppercase;letter-spacing:0.05em}
-.header-logout{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;padding:6px;
-  border-radius:8px;transition:all .2s;display:flex;align-items:center}
-.header-logout:hover{color:#fff;background:rgba(255,255,255,0.1)}
-
-.logout-confirm-btn {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 8px;
-  cursor: pointer;
-  border-radius: 4px;
+.header-user-container {
+  position: relative;
+}
+.header-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
   border: none;
-  font-family: inherit;
-  text-transform: uppercase;
-}
-.logout-confirm-btn.confirm {
-  background: var(--primary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
   color: #fff;
+  text-align: right;
+  outline: none;
+  font-family: var(--font);
 }
-.logout-confirm-btn.cancel {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.7);
+.header-user-trigger:hover {
+  background-color: rgba(255,255,255,0.06);
+}
+.header-user-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.header-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.header-role {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.header-chevron {
+  color: rgba(255,255,255,0.6);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+.header-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu */
+.header-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 220px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  animation: dropdownFadeIn 0.2s ease;
+}
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+.dropdown-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.dropdown-user-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  overflow: hidden;
+}
+.dropdown-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.dropdown-email {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.dropdown-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 6px 0;
+}
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  text-align: left;
+  transition: all 0.15s ease;
+  outline: none;
+}
+.dropdown-item:hover {
+  background-color: var(--glass-hover);
+  color: var(--text);
+}
+.dropdown-item svg {
+  color: var(--text-muted);
+}
+.dropdown-item:hover svg {
+  color: var(--text);
+}
+.logout-item {
+  color: var(--error);
+}
+.logout-item:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+.logout-item svg {
+  color: var(--error);
+  opacity: 0.8;
+}
+.logout-item:hover svg {
+  color: var(--error);
+  opacity: 1;
+}
+
+/* Monochrome theme overrides for Picker, Packer, and Driver dropdowns */
+.theme-picker .header-user-trigger,
+.theme-packer .header-user-trigger,
+.theme-driver .header-user-trigger {
+  color: var(--color-fg) !important;
+}
+.theme-picker .header-user-trigger:hover,
+.theme-packer .header-user-trigger:hover,
+.theme-driver .header-user-trigger:hover {
+  background-color: var(--color-light-gray) !important;
+}
+.theme-picker .header-name,
+.theme-packer .header-name,
+.theme-driver .header-name {
+  color: var(--color-fg) !important;
+}
+.theme-picker .header-role,
+.theme-packer .header-role,
+.theme-driver .header-role {
+  color: var(--color-muted) !important;
+}
+.theme-picker .header-avatar,
+.theme-packer .header-avatar,
+.theme-driver .header-avatar {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+}
+.theme-picker .header-chevron,
+.theme-packer .header-chevron,
+.theme-driver .header-chevron {
+  color: var(--color-muted) !important;
+}
+.theme-picker .header-dropdown-menu,
+.theme-packer .header-dropdown-menu,
+.theme-driver .header-dropdown-menu {
+  background: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.theme-picker .dropdown-avatar,
+.theme-packer .dropdown-avatar,
+.theme-driver .dropdown-avatar {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 0 !important;
+}
+.theme-picker .dropdown-name,
+.theme-packer .dropdown-name,
+.theme-driver .dropdown-name {
+  color: var(--color-fg) !important;
+}
+.theme-picker .dropdown-email,
+.theme-packer .dropdown-email,
+.theme-driver .dropdown-email {
+  color: var(--color-muted) !important;
+}
+.theme-picker .dropdown-divider,
+.theme-packer .dropdown-divider,
+.theme-driver .dropdown-divider {
+  background: var(--color-border) !important;
+}
+.theme-picker .dropdown-item,
+.theme-packer .dropdown-item,
+.theme-driver .dropdown-item {
+  font-family: var(--font-picker) !important;
+  color: var(--color-fg) !important;
+  border-radius: 0 !important;
+}
+.theme-picker .dropdown-item:hover,
+.theme-packer .dropdown-item:hover,
+.theme-driver .dropdown-item:hover {
+  background-color: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+}
+.theme-picker .dropdown-item svg,
+.theme-packer .dropdown-item svg,
+.theme-driver .dropdown-item svg {
+  color: var(--color-fg) !important;
+}
+.theme-picker .dropdown-item:hover svg,
+.theme-packer .dropdown-item:hover svg,
+.theme-driver .dropdown-item:hover svg {
+  color: var(--color-bg) !important;
+}
+.theme-picker .logout-item,
+.theme-packer .logout-item,
+.theme-driver .logout-item {
+  color: var(--color-fg) !important;
+}
+.theme-picker .logout-item:hover,
+.theme-packer .logout-item:hover,
+.theme-driver .logout-item:hover {
+  background-color: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+}
+.theme-picker .logout-item svg,
+.theme-packer .logout-item svg,
+.theme-driver .logout-item svg {
+  color: var(--color-fg) !important;
+}
+.theme-picker .logout-item:hover svg,
+.theme-packer .logout-item:hover svg,
+.theme-driver .logout-item:hover svg {
+  color: var(--color-bg) !important;
 }
 
 
@@ -309,3 +566,102 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:4px}
+
+/* Monochrome Modal overrides for Picker, Packer, and Driver apps */
+.theme-picker .modal-overlay,
+.theme-packer .modal-overlay,
+.theme-driver .modal-overlay {
+  align-items: center; /* Center modal in B&W mobile theme */
+  background: rgba(0,0,0,0.5) !important;
+  backdrop-filter: none !important;
+  padding: 16px;
+}
+
+.theme-picker .modal,
+.theme-packer .modal,
+.theme-driver .modal {
+  background: var(--color-bg) !important;
+  border: 2px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  color: var(--color-fg) !important;
+  max-width: 320px;
+  padding: 20px !important;
+  margin: 0 auto;
+  text-align: center;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+.theme-picker .modal-title,
+.theme-packer .modal-title,
+.theme-driver .modal-title {
+  font-family: var(--font-picker) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: var(--color-fg) !important;
+  margin-bottom: 8px !important;
+  text-transform: uppercase;
+}
+
+.theme-picker .modal-desc,
+.theme-packer .modal-desc,
+.theme-driver .modal-desc {
+  font-family: var(--font-picker) !important;
+  font-size: 12px !important;
+  color: var(--color-muted) !important;
+  margin-bottom: 20px !important;
+  line-height: 1.4;
+}
+
+.theme-picker .modal-actions,
+.theme-packer .modal-actions,
+.theme-driver .modal-actions {
+  display: flex;
+  flex-direction: column; /* Stack vertically to match B&W design guidelines */
+  gap: 8px !important;
+  margin-top: 0 !important;
+}
+
+.theme-picker .modal-actions .btn,
+.theme-packer .modal-actions .btn,
+.theme-driver .modal-actions .btn {
+  width: 100% !important;
+  font-family: var(--font-picker) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  padding: 10px !important;
+  border-radius: 0 !important;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+/* Cancel Button in B&W */
+.theme-picker .modal-actions .btn-outline,
+.theme-packer .modal-actions .btn-outline,
+.theme-driver .modal-actions .btn-outline {
+  background: var(--color-bg) !important;
+  color: var(--color-fg) !important;
+  border: 1.5px solid var(--color-border) !important;
+}
+.theme-picker .modal-actions .btn-outline:hover,
+.theme-packer .modal-actions .btn-outline:hover,
+.theme-driver .modal-actions .btn-outline:hover {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+}
+
+/* Logout/Danger Button in B&W */
+.theme-picker .modal-actions .btn-danger,
+.theme-packer .modal-actions .btn-danger,
+.theme-driver .modal-actions .btn-danger {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1.5px solid var(--color-border) !important;
+}
+.theme-picker .modal-actions .btn-danger:hover,
+.theme-packer .modal-actions .btn-danger:hover,
+.theme-driver .modal-actions .btn-danger:hover {
+  background: var(--color-bg) !important;
+  color: var(--color-fg) !important;
+}
+

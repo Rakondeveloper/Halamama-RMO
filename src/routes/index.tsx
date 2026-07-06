@@ -1,16 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Package, CheckCircle2, Clock, Loader2, XCircle, Wallet } from "lucide-react";
+import { Package, CheckCircle2, Clock, Loader2, Sparkles } from "lucide-react";
+import { useState, useMemo } from "react";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { ShiftTracker } from "@/components/dashboard/ShiftTracker";
 import { PipelineTracker } from "@/components/dashboard/PipelineTracker";
-import { OperationsTable } from "@/components/dashboard/OperationsTable";
 import { FlagsPanel } from "@/components/dashboard/FlagsPanel";
-import { DeliveryMap } from "@/components/dashboard/DeliveryMap";
 import { StaffMonitoring } from "@/components/dashboard/StaffMonitoring";
-import { ACTIVE_STATUSES, MOCK_ORDERS } from "@/lib/orders";
+import { ACTIVE_STATUSES, isUnpaidPayLaterOrder } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/lib/auth";
+import { isDemoMode } from "@/lib/api/config";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/")(  {
   head: () => ({
     meta: [
       { title: "Halamama LMD · RouteMyOrder Admin Dashboard" },
@@ -31,16 +34,90 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const deliveredCount = MOCK_ORDERS.filter((order) => order.status === "Delivered").length;
-  const pendingAllocationCount = MOCK_ORDERS.filter((order) => order.status === "Ready to Assign").length;
-  const inProgressCount = MOCK_ORDERS.filter((order) => ACTIVE_STATUSES.includes(order.status)).length;
-  const failedDeliveryCount = MOCK_ORDERS.filter((order) => order.status === "Delivery Failed").length;
-  const revenueTotal = MOCK_ORDERS.reduce((sum, order) => sum + order.total, 0);
+  const { data: orders = [] } = useOrders();
+  const { user } = useAuth();
+  const [period, setPeriod] = useState<"Today" | "7D" | "30D" | "QTD">("Today");
+
+  const filteredOrders = useMemo(() => {
+    if (orders.length === 0) return [];
+    // Exclude unpaid PayLater orders from general dashboard view
+    const activeOrders = orders.filter((o) => !isUnpaidPayLaterOrder(o));
+    if (activeOrders.length === 0) return [];
+
+    const currentYear = new Date().getFullYear();
+
+    // Determine the reference "now" date
+    let referenceDate = new Date();
+    if (isDemoMode()) {
+      // Find the latest date in the mock orders list to use as reference "today"
+      let maxDate = new Date(0);
+      activeOrders.forEach((o) => {
+        const d = new Date(`${o.date}, ${currentYear}`);
+        if (!isNaN(d.getTime()) && d.getTime() > maxDate.getTime()) {
+          maxDate = d;
+        }
+      });
+      if (maxDate.getTime() > 0) {
+        referenceDate = maxDate;
+      }
+    }
+
+    const refTime = new Date(
+      referenceDate.getFullYear(),
+      referenceDate.getMonth(),
+      referenceDate.getDate()
+    ).getTime();
+
+    return activeOrders.filter((order) => {
+      if (!order.date) return true;
+      const orderDateObj = new Date(`${order.date}, ${currentYear}`);
+      if (isNaN(orderDateObj.getTime())) return true;
+
+      const orderTime = new Date(
+        orderDateObj.getFullYear(),
+        orderDateObj.getMonth(),
+        orderDateObj.getDate()
+      ).getTime();
+      const diffDays = (refTime - orderTime) / (1000 * 60 * 60 * 24);
+
+      if (period === "Today") {
+        return diffDays === 0;
+      } else if (period === "7D") {
+        return diffDays >= 0 && diffDays < 7;
+      } else if (period === "30D") {
+        return diffDays >= 0 && diffDays < 30;
+      } else if (period === "QTD") {
+        const refMonth = referenceDate.getMonth();
+        const startOfQuarterMonth = Math.floor(refMonth / 3) * 3;
+        const startOfQuarter = new Date(
+          referenceDate.getFullYear(),
+          startOfQuarterMonth,
+          1
+        ).getTime();
+        return orderTime >= startOfQuarter && orderTime <= refTime;
+      }
+      return true;
+    });
+  }, [orders, period]);
+
+  const deliveredCount = filteredOrders.filter((order) => order.status === "Delivered").length;
+  const pendingAllocationCount = filteredOrders.filter((order) => order.status === "Ready to Assign").length;
+  const inProgressCount = filteredOrders.filter((order) => ACTIVE_STATUSES.includes(order.status)).length;
+
+  // Dynamic date
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const hours = now.getHours();
+  const greeting = hours < 12 ? "Good morning" : hours < 17 ? "Good afternoon" : "Good evening";
 
   const kpis = [
     {
-      label: "Total Orders Today",
-      value: MOCK_ORDERS.length.toLocaleString(),
+      label: "Total Orders",
+      value: filteredOrders.length.toLocaleString(),
       change: 12.4,
       icon: Package,
       tone: "primary" as const,
@@ -72,49 +149,41 @@ function Dashboard() {
       spark: [120, 135, 128, 142, 158, 150, 168, 172, 180, 178, 185, 183],
       pulse: true,
     },
-    {
-      label: "Failed Deliveries",
-      value: failedDeliveryCount.toLocaleString(),
-      change: -22.5,
-      icon: XCircle,
-      tone: "danger" as const,
-      spark: [22, 24, 20, 18, 16, 18, 15, 14, 12, 14, 13, 14],
-    },
-    {
-      label: "Total Revenue",
-      value: `QAR ${revenueTotal.toLocaleString()}`,
-      change: 18.3,
-      icon: Wallet,
-      tone: "purple" as const,
-      spark: [120, 140, 160, 180, 170, 200, 220, 210, 240, 250, 260, 248],
-    },
   ];
 
   return (
     <div className="min-h-screen flex w-full bg-background text-foreground">
       <AppSidebar />
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col relative z-10 aurora-container">
+        <div className="aurora-glow-1" />
+        <div className="aurora-glow-2" />
         <TopBar />
-        <main className="flex-1 p-6 space-y-6 max-w-[1600px] mx-auto w-full">
-          {/* Page header */}
-          <div className="flex items-end justify-between flex-wrap gap-4">
+        <main className="flex-1 p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto w-full">
+          {/* Page header — Personalized greeting */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between relative z-10">
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">Operations Overview</h1>
-                <span className="h-6 px-2 rounded-md bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider grid place-items-center">
-                  Live
-                </span>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="h-4 w-4 text-primary/60" />
+                <span className="text-xs font-semibold text-primary/70 uppercase tracking-wider">{dateStr}</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Wednesday, May 13 · Real-time view across all warehouses & delivery zones
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight">
+                {greeting}, {user?.name?.split(" ")[0] ?? "Admin"} 👋
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Here's what's happening across your warehouses & delivery zones.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center bg-card border border-border rounded-xl p-1 shadow-soft">
-                {["Today", "7D", "30D", "QTD"].map((p, i) => (
+                {(["Today", "7D", "30D", "QTD"] as const).map((p) => (
                   <button
                     key={p}
-                    className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors ${i === 0 ? "bg-primary text-primary-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setPeriod(p)}
+                    className={`h-8 px-3 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 ${
+                      period === p
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
                   >
                     {p}
                   </button>
@@ -124,31 +193,26 @@ function Dashboard() {
           </div>
 
           {/* KPI grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {kpis.map((k) => (
               <KpiCard key={k.label} {...k} />
             ))}
           </div>
 
-          {/* Pipeline */}
-          <PipelineTracker />
+          {/* Shift Operations tracker */}
+          <ShiftTracker orders={filteredOrders} />
 
-          {/* Map + Flags */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <DeliveryMap />
-            </div>
-            <FlagsPanel />
+          {/* Pipeline */}
+          <PipelineTracker orders={filteredOrders} />
+
+          {/* Flags & Staff — side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <FlagsPanel orders={filteredOrders} />
+            <StaffMonitoring orders={filteredOrders} />
           </div>
 
-          {/* Staff */}
-          <StaffMonitoring />
-
-          {/* Operations table */}
-          <OperationsTable />
-
-          <footer className="text-center text-[11px] text-muted-foreground py-4">
-            Halamama LMD · RouteMyOrder · Connected to Shopify · v2.4.1
+          <footer className="text-center text-[11px] text-muted-foreground py-4 border-t border-border/40 mt-2">
+            <span className="font-medium">Halamama</span> · RouteMyOrder · Connected to Shopify · v2.4.1
           </footer>
         </main>
       </div>

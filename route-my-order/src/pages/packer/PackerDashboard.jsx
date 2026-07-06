@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { fetchOrders, assignOrder, completePacking, flagOrderIssue } from '../../api/orders'
+import { fetchOrders, assignOrder, completePacking, flagOrderIssue, subscribeToSync } from '../../api/orders'
 import {
   PackageOpen,
   CheckSquare,
@@ -34,7 +34,9 @@ export function PackerDashboard() {
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterDays, setFilterDays] = useState(30)
+  const [filterType, setFilterType] = useState('30days') // '7days', '30days', 'custom'
+  const [customRange, setCustomRange] = useState({ start: '', end: '' })
+  const [showDatePicker, setShowDatePicker] = useState(false)
 
   // Assign Modal
   const [assignModalOpen, setAssignModalOpen] = useState(false)
@@ -58,6 +60,10 @@ export function PackerDashboard() {
 
   useEffect(() => {
     loadOrders()
+    const unsubscribe = subscribeToSync(() => {
+      loadOrders()
+    })
+    return () => unsubscribe()
   }, [])
 
   const handleConfirmAssign = async () => {
@@ -115,6 +121,85 @@ export function PackerDashboard() {
     }
   }
 
+  // Parse any date string format ("5/27/2026 • 09:45 AM", "2026-04-20", etc.) to local midnight
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null
+    // Clean string by taking part before "•" if present
+    const cleanStr = dateStr.split('•')[0].trim()
+    
+    // Check if it contains YYYY-MM-DD
+    if (cleanStr.includes('-')) {
+      const parts = cleanStr.split('-')
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10)
+        const m = parseInt(parts[1], 10) - 1
+        const d = parseInt(parts[2], 10)
+        return new Date(y, m, d)
+      }
+    }
+    
+    // Check if it contains M/D/YYYY
+    if (cleanStr.includes('/')) {
+      const parts = cleanStr.split('/')
+      if (parts.length === 3) {
+        const m = parseInt(parts[0], 10) - 1
+        const d = parseInt(parts[1], 10)
+        const y = parseInt(parts[2], 10)
+        return new Date(y, m, d)
+      }
+    }
+    
+    // Fallback to standard local parsing
+    const parsed = new Date(cleanStr)
+    if (isNaN(parsed.getTime())) return null
+    parsed.setHours(0, 0, 0, 0)
+    return parsed
+  }
+
+  const formatCustomRangeLabel = () => {
+    if (!customRange.start || !customRange.end) return 'Custom Range'
+    const startDate = parseLocalDate(customRange.start)
+    const endDate = parseLocalDate(customRange.end)
+    if (!startDate || !endDate) return 'Custom Range'
+    
+    const options = { month: 'short', day: 'numeric' }
+    const startStr = startDate.toLocaleDateString('en-US', options)
+    const endStr = endDate.toLocaleDateString('en-US', options)
+    
+    return `${startStr} - ${endStr}`
+  }
+
+  const matchesDays = (orderDateStr) => {
+    const orderDateObj = parseLocalDate(orderDateStr)
+    if (!orderDateObj) return false
+
+    // Today midnight local time
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (filterType === '7days') {
+      const startLimit = new Date(today)
+      startLimit.setDate(today.getDate() - 6) // Last 7 calendar days (e.g. June 13 to June 19)
+      return orderDateObj >= startLimit && orderDateObj <= today
+    }
+    
+    if (filterType === '30days') {
+      const startLimit = new Date(today)
+      startLimit.setDate(today.getDate() - 29) // Last 30 calendar days (e.g. May 21 to June 19)
+      return orderDateObj >= startLimit && orderDateObj <= today
+    }
+
+    if (filterType === 'custom') {
+      if (!customRange.start || !customRange.end) return true
+      const startLimit = parseLocalDate(customRange.start)
+      const endLimit = parseLocalDate(customRange.end)
+      if (!startLimit || !endLimit) return true
+      return orderDateObj >= startLimit && orderDateObj <= endLimit
+    }
+
+    return true
+  }
+
   // Filter definitions
   // New: packed orders not assigned to any packer yet
   const newOrders = orders.filter(o => o.status === 'packed' && !o.packedBy)
@@ -128,35 +213,71 @@ export function PackerDashboard() {
   // All: every order returned by the API
   const allOrders = orders
 
-  // Date filter helper
-  const matchesDays = (orderDate) => {
-    if (filterDays === 30) return true
-    if (filterDays === 7) {
-      return orderDate && (orderDate.includes('5/19/2026') || orderDate.includes('5/20/2026') || orderDate.includes('5/21/2026') || orderDate.includes('5/22/2026'))
-    }
-    return true
-  }
+  // 1. Date Filter applied first to all orders
+  const dateFilteredOrders = orders.filter(o => matchesDays(o.date))
 
-  const filterBySearchAndDays = (list) => {
+  // 2. Tab Filter applied:
+  // For New and Mine, we use unfiltered orders.
+  // For Completed and All, we use date-filtered orders.
+  const newOrdersFiltered = newOrders
+  const myOrdersFiltered = myOrders
+  const completedOrdersFiltered = dateFilteredOrders.filter(o =>
+    o.packedBy === user.email &&
+    ['assigning', 'assigned', 'delivered', 'failed'].includes(o.status)
+  )
+  const allOrdersFiltered = dateFilteredOrders
+
+  // 3. Search Filter applied next
+  const filterList = (list) => {
     return list.filter(o => {
       const matchesSearch = o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            o.customer.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesTime = matchesDays(o.date)
-      return matchesSearch && matchesTime
+                            o.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (o.phone && o.phone.toLowerCase().includes(searchTerm.toLowerCase()))
+      return matchesSearch
     })
   }
 
-  const filteredCompleted = filterBySearchAndDays(completedOrders)
-  const filteredAll = filterBySearchAndDays(allOrders)
+  const filteredNewOrders = filterList(newOrdersFiltered)
+  const filteredMyOrders = filterList(myOrdersFiltered)
+  const filteredCompletedOrders = filterList(completedOrdersFiltered)
+  const filteredAllOrders = filterList(allOrdersFiltered)
 
   const getTabCount = (tab) => {
     switch (tab) {
-      case 'New': return newOrders.length
-      case 'Mine': return myOrders.length
-      case 'Completed': return completedOrders.length
-      case 'All': return allOrders.length
+      case 'New': return newOrdersFiltered.length
+      case 'Mine': return myOrdersFiltered.length
+      case 'Completed': return completedOrdersFiltered.length
+      case 'All': return allOrdersFiltered.length
       default: return 0
     }
+  }
+
+  const getShiftText = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const options = { month: 'short', day: 'numeric' }
+    
+    if (filterType === '7days') {
+      const start = new Date(today)
+      start.setDate(today.getDate() - 6)
+      return `Shift: ${start.toLocaleDateString('en-US', options)} – ${today.toLocaleDateString('en-US', options)} (Last 7 Days)`
+    }
+    
+    if (filterType === '30days') {
+      const start = new Date(today)
+      start.setDate(today.getDate() - 29)
+      return `Shift: ${start.toLocaleDateString('en-US', options)} – ${today.toLocaleDateString('en-US', options)} (Last 30 Days)`
+    }
+    
+    if (filterType === 'custom') {
+      if (!customRange.start || !customRange.end) return 'Shift: Custom Date Range'
+      const start = parseLocalDate(customRange.start)
+      const end = parseLocalDate(customRange.end)
+      if (!start || !end) return 'Shift: Custom Date Range'
+      return `Shift: ${start.toLocaleDateString('en-US', options)} – ${end.toLocaleDateString('en-US', options)}`
+    }
+    
+    return 'Shift: All Days'
   }
 
   // ─── Detail view (packing mode) ───
@@ -195,7 +316,6 @@ export function PackerDashboard() {
                 <div className="packer-customer-date">{activeOrder.date || '5/20/2026 • 08:11 AM'}</div>
               </div>
               <div>
-                <div className="packer-customer-total">{activeOrder.total}.00</div>
                 <div className="packer-customer-stats">Verified {checkedCount}/{totalCount} items</div>
               </div>
             </div>
@@ -217,7 +337,7 @@ export function PackerDashboard() {
                     {/* Flag Icon */}
                     <button
                       className="packer-item-flag"
-                      style={{ color: flagItemSku === item.sku ? '#ef4444' : 'var(--color-fg)' }}
+                      style={{ color: flagItemSku === item.sku ? '#ef4444' : 'var(--color-muted)' }}
                       onClick={() => {
                         if (flagItemSku === item.sku) {
                           setFlagItemSku(null);
@@ -228,7 +348,7 @@ export function PackerDashboard() {
                         }
                       }}
                     >
-                      <Flag size={14} fill="currentColor" />
+                      <Flag size={12} fill="currentColor" />
                     </button>
 
                     <div className="packer-item-img-container">
@@ -333,17 +453,8 @@ export function PackerDashboard() {
               <PackageOpen size={14} />
             </div>
             <div>
-              <div className="packer-metric-value">{newOrders.length}</div>
+              <div className="packer-metric-value">{newOrdersFiltered.length}</div>
               <div className="packer-metric-label">To Pack</div>
-            </div>
-          </div>
-          <div className="packer-metric-card">
-            <div className="packer-metric-icon">
-              <Clock size={14} />
-            </div>
-            <div>
-              <div className="packer-metric-value">{myOrders.length}</div>
-              <div className="packer-metric-label">My Active</div>
             </div>
           </div>
           <div className="packer-metric-card">
@@ -351,23 +462,26 @@ export function PackerDashboard() {
               <CheckSquare size={14} />
             </div>
             <div>
-              <div className="packer-metric-value">{completedOrders.length}</div>
+              <div className="packer-metric-value">{completedOrdersFiltered.length}</div>
               <div className="packer-metric-label">Packed</div>
-            </div>
-          </div>
-          <div className="packer-metric-card">
-            <div className="packer-metric-icon">
-              <Package size={14} />
-            </div>
-            <div>
-              <div className="packer-metric-value">{allOrders.length}</div>
-              <div className="packer-metric-label">Total</div>
             </div>
           </div>
         </div>
 
         <div className="packer-shift-text">
-          Shift: Apr 20 – May 20 (Last 30 Days)
+          {getShiftText()}
+        </div>
+
+        {/* Search Bar */}
+        <div className="packer-search-container" style={{ marginBottom: '12px' }}>
+          <Search className="packer-search-icon" size={16} />
+          <input 
+            type="text" 
+            placeholder="Search orders, customer name, or phone..." 
+            className="packer-search-input" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
         {/* Tabs */}
@@ -386,35 +500,98 @@ export function PackerDashboard() {
           ))}
         </div>
 
-        {/* Search & Filters (Completed / All tabs) */}
+        {/* Filters (Completed / All tabs) */}
         {(activeTab === 'Completed' || activeTab === 'All') && (
-          <div style={{ marginBottom: '12px' }}>
-            <div className="packer-search-container">
-              <Search className="packer-search-icon" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search orders..." 
-                className="packer-search-input" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="packer-filters">
+          <div style={{ marginBottom: '12px', position: 'relative' }}>
+            <div className="packer-filters" style={{ overflow: 'visible' }}>
               <button 
-                className={`packer-filter-btn ${filterDays === 7 ? 'active' : ''}`}
-                onClick={() => setFilterDays(7)}
+                className={`packer-filter-btn ${filterType === '7days' ? 'active' : ''}`}
+                onClick={() => {
+                  setFilterType('7days')
+                  setShowDatePicker(false)
+                }}
               >
                 7 Days
               </button>
               <button 
-                className={`packer-filter-btn ${filterDays === 30 ? 'active' : ''}`}
-                onClick={() => setFilterDays(30)}
+                className={`packer-filter-btn ${filterType === '30days' ? 'active' : ''}`}
+                onClick={() => {
+                  setFilterType('30days')
+                  setShowDatePicker(false)
+                }}
               >
                 30 Days
               </button>
-              <button className="packer-filter-btn">
-                <Calendar size={12} /> Apr 22 - May 22 <ChevronDown size={12} />
-              </button>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <button 
+                  className={`packer-filter-btn ${filterType === 'custom' ? 'active' : ''}`}
+                  onClick={() => {
+                    setFilterType('custom')
+                    setShowDatePicker(!showDatePicker)
+                  }}
+                >
+                  <Calendar size={12} /> {formatCustomRangeLabel()} <ChevronDown size={12} />
+                </button>
+                {showDatePicker && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    backgroundColor: 'var(--color-bg)',
+                    border: '2px solid var(--color-border)',
+                    padding: '12px',
+                    zIndex: 100,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    marginTop: '4px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    minWidth: '220px'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                      <label style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--color-muted)' }}>Start Date</label>
+                      <input 
+                        type="date" 
+                        value={customRange.start}
+                        onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                        style={{
+                          padding: '4px',
+                          fontSize: '11px',
+                          border: '1.5px solid var(--color-border)',
+                          fontFamily: 'var(--font-picker)',
+                          width: '100%',
+                          color: 'black'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                      <label style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--color-muted)' }}>End Date</label>
+                      <input 
+                        type="date" 
+                        value={customRange.end}
+                        onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                        style={{
+                          padding: '4px',
+                          fontSize: '11px',
+                          border: '1.5px solid var(--color-border)',
+                          fontFamily: 'var(--font-picker)',
+                          width: '100%',
+                          color: 'black'
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                      <button 
+                        className="packer-filter-btn"
+                        onClick={() => setShowDatePicker(false)}
+                        style={{ flex: 1, fontSize: '10px', padding: '4px', width: '100%' }}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -426,11 +603,11 @@ export function PackerDashboard() {
           <div>
 
             {/* ── NEW TAB ── */}
-            {activeTab === 'New' && newOrders.length === 0 && (
+            {activeTab === 'New' && filteredNewOrders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#707070', fontSize: '12px' }}>No new orders ready for packing</div>
             )}
 
-            {activeTab === 'New' && newOrders.map(order => {
+            {activeTab === 'New' && filteredNewOrders.map(order => {
               const pickedCount = order.items ? order.items.filter(i => i.picked).length : 0
               const totalCount = order.items ? order.items.length : 0
               return (
@@ -464,11 +641,11 @@ export function PackerDashboard() {
 
 
             {/* ── MINE TAB ── */}
-            {activeTab === 'Mine' && myOrders.length === 0 && (
+            {activeTab === 'Mine' && filteredMyOrders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#707070', fontSize: '12px' }}>You have no active orders</div>
             )}
 
-            {activeTab === 'Mine' && myOrders.map(order => {
+            {activeTab === 'Mine' && filteredMyOrders.map(order => {
               const totalCount = order.items ? order.items.length : 0
               return (
                 <div key={order.id} className="packer-order-card">
@@ -501,11 +678,11 @@ export function PackerDashboard() {
 
 
             {/* ── COMPLETED TAB ── */}
-            {activeTab === 'Completed' && filteredCompleted.length === 0 && (
+            {activeTab === 'Completed' && filteredCompletedOrders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#707070', fontSize: '12px' }}>No completed orders found</div>
             )}
 
-            {activeTab === 'Completed' && filteredCompleted.map(order => {
+            {activeTab === 'Completed' && filteredCompletedOrders.map(order => {
               const packedCount = order.items ? order.items.filter(i => i.picked).length : 0
               const totalCount = order.items ? order.items.length : 0
               return (
@@ -541,11 +718,11 @@ export function PackerDashboard() {
 
 
             {/* ── ALL TAB ── */}
-            {activeTab === 'All' && filteredAll.length === 0 && (
+            {activeTab === 'All' && filteredAllOrders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#707070', fontSize: '12px' }}>No orders found</div>
             )}
 
-            {activeTab === 'All' && filteredAll.map(order => {
+            {activeTab === 'All' && filteredAllOrders.map(order => {
               const pickedCount = order.items ? order.items.filter(i => i.picked).length : 0
               const totalCount = order.items ? order.items.length : 0
               const isNew = order.status === 'packed' && !order.packedBy

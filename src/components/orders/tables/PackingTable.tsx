@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Order } from "@/lib/orders";
-import { tatColorClass } from "@/lib/orders";
+import { getOrderItemsCount, tatColorClass, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -79,18 +78,49 @@ export function PackingTable({
                     <div className="truncate text-sm font-semibold text-foreground">
                       {order.customer.name}
                     </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {order.customer.email}
+                    <div className="truncate text-xs text-muted-foreground tabular-nums">
+                      {order.customer.phone}
                     </div>
                   </div>
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  <span className="text-xs font-medium">{order.items}</span>
+                  <span className="text-xs font-medium">{getOrderItemsCount(order)}</span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                    {order.packingStatus || "0/0 Packed"}
-                  </span>
+                  {(() => {
+                    let packingStat = order.packingStatus;
+                    if (!packingStat) {
+                      const total = getOrderItemsCount(order);
+                      if (order.itemsList && order.itemsList.length > 0) {
+                        const packed = order.itemsList.filter(item => item.status === "Prepared").length;
+                        packingStat = `${packed}/${total} Packing`;
+                      } else {
+                        const fullyPackedStatuses = ["Ready to Assign", "Driver Accepted", "Started", "Delivered"];
+                        if (fullyPackedStatuses.includes(order.status)) {
+                          packingStat = `${total}/${total} Packing`;
+                        } else {
+                          packingStat = `0/${total} Packing`;
+                        }
+                      }
+                    } else {
+                      packingStat = packingStat.replace("Packed", "Packing");
+                    }
+
+                    const parts = packingStat.split(" ")[0].split("/");
+                    const packed = parts[0];
+                    const totalVal = parts[1];
+                    const isFullyPacked = packed && totalVal && packed === totalVal && totalVal !== "0";
+                    return (
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        isFullyPacked
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                          : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                      )}>
+                        {packingStat}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   {order.packer ? (
@@ -104,7 +134,14 @@ export function PackingTable({
                   )}
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  <span className="text-xs font-medium">{order.bags || 0} Bag(s)</span>
+                  {order.bags && order.bags > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                      <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      {order.bags} {order.bags === 1 ? "Bag" : "Bags"}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="py-3 pr-4 align-middle text-right">
                   <Button

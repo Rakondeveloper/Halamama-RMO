@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Filter } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
@@ -10,12 +11,14 @@ import {
   countForLegacyTab,
   matchesLegacyTab,
   matchesSearch,
-  MOCK_ORDERS,
   LEGACY_TABS,
+  parseTatHours,
   type LegacyTabId,
   type Order,
+  type EnrichedOrder,
 } from "@/lib/orders";
 import { getEnrichedOrder } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
 import { PrintInvoiceDialog } from "./PrintInvoiceDialog";
 import { ViewExportDialog } from "./ViewExportDialog";
 import { BulkActionBar } from "./BulkActionBar";
@@ -24,10 +27,12 @@ import { OrderTable } from "./OrderTable";
 import { OrdersTabs } from "./OrdersTabs";
 import { OrdersToolbar, ViewToggle, type ViewMode } from "./OrdersToolbar";
 import { AssignDriverDialog } from "./AssignDriverDialog";
+import { AssignZoneDialog } from "./AssignZoneDialog";
 import { toast } from "sonner";
 
 export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
   const navigate = useNavigate();
+  const { data: apiOrders = [], refetch } = useOrders();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<LegacyTabId>(initialTab || "New");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -35,21 +40,43 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
+  const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [giftPrintDialogOpen, setGiftPrintDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
+  const [orders, setOrders] = useState<Order[]>(apiOrders);
   const [days, setDays] = useState("30");
   const [filters, setFilters] = useState({
     status: "All",
     paymentStatus: "All",
     customer: "",
   });
+  
+  const [sortColumn, setSortColumn] = useState<"id" | "date" | "customer" | "tat" | "total" | null>("tat");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (col: "id" | "date" | "customer" | "tat" | "total") => {
+    if (sortColumn === col) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(col);
+      setSortDirection("asc");
+    }
+  };
+
+  // Single action states for quick menu actions
+  const [singleActionOrder, setSingleActionOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
     return () => window.clearTimeout(t);
   }, []);
+
+  // Sync orders from hook whenever apiOrders changes
+  useEffect(() => {
+    if (apiOrders.length > 0) setOrders(apiOrders);
+  }, [apiOrders]);
 
   useEffect(() => {
     if (initialTab) {
@@ -87,9 +114,48 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
     if (filters.status !== "All") {
       result = result.filter((o) => o.status === filters.status);
     }
+
+    if (activeTab === "Cancelled") {
+      result = [...result].sort((a, b) => parseTatHours(b.tat) - parseTatHours(a.tat));
+    }
     
     return result;
   }, [baseOrders, activeTab, filters.status]);
+
+  const sortedFiltered = useMemo(() => {
+    const result = [...filtered];
+    if (sortColumn) {
+      result.sort((a, b) => {
+        let valA: any = "";
+        let valB: any = "";
+
+        if (sortColumn === "id") {
+          valA = a.id;
+          valB = b.id;
+        } else if (sortColumn === "customer") {
+          valA = a.customer.name;
+          valB = b.customer.name;
+        } else if (sortColumn === "tat") {
+          valA = parseTatHours(a.tat);
+          valB = parseTatHours(b.tat);
+        } else if (sortColumn === "total") {
+          valA = a.total;
+          valB = b.total;
+        } else if (sortColumn === "date") {
+          const year = new Date().getFullYear();
+          const timeAStr = a.time ? ` ${a.time}` : "";
+          const timeBStr = b.time ? ` ${b.time}` : "";
+          valA = new Date(`${a.date}, ${year}${timeAStr}`).getTime();
+          valB = new Date(`${b.date}, ${year}${timeBStr}`).getTime();
+        }
+
+        if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+        if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [filtered, sortColumn, sortDirection]);
 
   const tabCounts = useMemo(() => {
     const counts = {} as Record<LegacyTabId, number>;
@@ -131,22 +197,47 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
   const handleRefresh = () => {
     setLoading(true);
     toast.info("Refreshing orders...");
-    setTimeout(() => {
-      setOrders([...MOCK_ORDERS].sort(() => Math.random() - 0.5));
+    refetch().then(() => {
       setLoading(false);
       toast.success("Orders refreshed");
-    }, 800);
+    });
   };
 
   const handlePullRecent = () => {
     setLoading(true);
     toast.info("Fetching recent orders...");
-    setTimeout(() => {
-      const randomOrder = { ...MOCK_ORDERS[Math.floor(Math.random() * MOCK_ORDERS.length)], id: `#R${Math.floor(Math.random() * 10000)}` };
-      setOrders([randomOrder, ...orders]);
+    refetch().then(() => {
       setLoading(false);
-      toast.success("Fetched 1 new order");
-    }, 1200);
+      toast.success("Orders refreshed");
+    });
+  };
+
+  // Get current state values in enriched format
+  const getEnrichedOrderFromState = (id: string): EnrichedOrder | undefined => {
+    const baseEnriched = getEnrichedOrder(id);
+    if (!baseEnriched) return undefined;
+    const currentStateOrder = orders.find((o) => o.id === id);
+    if (!currentStateOrder) return baseEnriched;
+    return {
+      ...baseEnriched,
+      status: currentStateOrder.status,
+      driver: currentStateOrder.driver,
+      city: currentStateOrder.city,
+      zone: currentStateOrder.city,
+    };
+  };
+
+  // Handle single action card triggers
+  const handleCardAction = (
+    action: "zone" | "driver" | "print" | "giftPrint" | "export",
+    order: Order
+  ) => {
+    setSingleActionOrder(order);
+    if (action === "zone") setZoneDialogOpen(true);
+    else if (action === "driver") setDriverDialogOpen(true);
+    else if (action === "print") setPrintDialogOpen(true);
+    else if (action === "giftPrint") setGiftPrintDialogOpen(true);
+    else if (action === "export") setExportDialogOpen(true);
   };
 
   return (
@@ -224,7 +315,7 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
         <>
           <div className="md:hidden">
             <div className="space-y-3">
-              {filtered.map((order) => (
+              {sortedFiltered.map((order) => (
                 <OrderCard
                   key={order.id}
                   order={order}
@@ -235,6 +326,7 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
                     setExpandedId((id) => (id === order.id ? null : order.id))
                   }
                   onViewOrder={goToOrder}
+                  onAction={handleCardAction}
                 />
               ))}
             </div>
@@ -242,8 +334,8 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
 
           <div className="hidden md:block">
             {viewMode === "grid" ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filtered.map((order) => (
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {sortedFiltered.map((order) => (
                   <OrderCard
                     key={order.id}
                     order={order}
@@ -254,12 +346,13 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
                       setExpandedId((id) => (id === order.id ? null : order.id))
                     }
                     onViewOrder={goToOrder}
+                    onAction={handleCardAction}
                   />
                 ))}
               </div>
             ) : (
               <OrderTable
-                orders={filtered}
+                orders={sortedFiltered}
                 selectedIds={selectedIds}
                 onSelect={onSelect}
                 onSelectAllVisible={onSelectAllVisible}
@@ -270,6 +363,9 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
                 onViewOrder={goToOrder}
                 loading={false}
                 activeTab={activeTab}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
               />
             )}
           </div>
@@ -296,97 +392,180 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
       <BulkActionBar
         count={selectedCount}
         onClear={() => setSelectedIds(new Set())}
-        onAssignZone={() => {}}
+        onAssignZone={() => setZoneDialogOpen(true)}
         onAssignDriver={activeTab === "Ready to Assign" ? () => setDriverDialogOpen(true) : undefined}
         onPrintInvoices={() => setPrintDialogOpen(true)}
+        onPrintGiftInvoices={() => setGiftPrintDialogOpen(true)}
         onViewExport={() => setExportDialogOpen(true)}
       />
 
+      <AssignZoneDialog
+        open={zoneDialogOpen}
+        onOpenChange={(open) => {
+          setZoneDialogOpen(open);
+          if (!open) setSingleActionOrder(null);
+        }}
+        selectedCount={singleActionOrder ? 1 : selectedCount}
+        onAssign={(zone, zoneName, overrideExisting) => {
+          const targetIds = singleActionOrder ? [singleActionOrder.id] : Array.from(selectedIds);
+          setOrders((prev) =>
+            prev.map((o) => (targetIds.includes(o.id) ? { ...o, city: zoneName } : o))
+          );
+          toast.success(
+            `Assigned zone "${zoneName}" to ${targetIds.length} order(s)${
+              overrideExisting ? " (Override)" : ""
+            }`
+          );
+          setSelectedIds(new Set());
+          setSingleActionOrder(null);
+        }}
+      />
       <AssignDriverDialog
         open={driverDialogOpen}
-        onOpenChange={setDriverDialogOpen}
-        selectedCount={selectedCount}
-        onAssign={(driver, force) => {
-          toast.success(`Assigned driver ${driver} to ${selectedCount} order(s)${force ? " (Forced)" : ""}`);
+        onOpenChange={(open) => {
+          setDriverDialogOpen(open);
+          if (!open) setSingleActionOrder(null);
+        }}
+        selectedCount={singleActionOrder ? 1 : selectedCount}
+        onAssign={(driver) => {
+          const targetIds = singleActionOrder ? [singleActionOrder.id] : Array.from(selectedIds);
+          setOrders((prev) =>
+            prev.map((o) =>
+              targetIds.includes(o.id)
+                ? { ...o, driver: driver, status: "Driver Accepted" as const }
+                : o
+            )
+          );
+          toast.success(
+            `Assigned driver ${driver} to ${targetIds.length} order(s)`
+          );
           setSelectedIds(new Set());
+          setSingleActionOrder(null);
         }}
       />
       <PrintInvoiceDialog
         open={printDialogOpen}
-        onOpenChange={setPrintDialogOpen}
-        orders={Array.from(selectedIds).map(id => getEnrichedOrder(id)).filter(Boolean) as any}
+        onOpenChange={(open) => {
+          setPrintDialogOpen(open);
+          if (!open) setSingleActionOrder(null);
+        }}
+        orders={
+          singleActionOrder
+            ? ([getEnrichedOrderFromState(singleActionOrder.id)].filter(Boolean) as any)
+            : (Array.from(selectedIds)
+                .map((id) => getEnrichedOrderFromState(id))
+                .filter(Boolean) as any)
+        }
+      />
+      <PrintInvoiceDialog
+        open={giftPrintDialogOpen}
+        onOpenChange={(open) => {
+          setGiftPrintDialogOpen(open);
+          if (!open) setSingleActionOrder(null);
+        }}
+        orders={
+          singleActionOrder
+            ? ([getEnrichedOrderFromState(singleActionOrder.id)].filter(Boolean) as any)
+            : (Array.from(selectedIds)
+                .map((id) => getEnrichedOrderFromState(id))
+                .filter(Boolean) as any)
+        }
+        isGift
       />
       <ViewExportDialog
         open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        orders={Array.from(selectedIds).map(id => getEnrichedOrder(id)).filter(Boolean) as any}
+        onOpenChange={(open) => {
+          setExportDialogOpen(open);
+          if (!open) setSingleActionOrder(null);
+        }}
+        orders={
+          singleActionOrder
+            ? ([getEnrichedOrderFromState(singleActionOrder.id)].filter(Boolean) as any)
+            : (Array.from(selectedIds)
+                .map((id) => getEnrichedOrderFromState(id))
+                .filter(Boolean) as any)
+        }
         activeTab={activeTab}
       />
     
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-[400px] sm:max-w-md p-0 flex flex-col bg-card border-border">
-          <div className="p-6 border-b border-border">
-            <SheetHeader>
-              <SheetTitle>Filter Orders</SheetTitle>
-              <SheetDescription>
+        <SheetContent side="right" className="w-full sm:w-[400px] sm:max-w-md p-0 flex flex-col bg-card border-border shadow-2xl">
+          <div className="px-6 py-5 border-b border-border bg-muted/10">
+            <SheetHeader className="text-left space-y-1">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 grid place-items-center">
+                  <Filter className="h-4 w-4 text-primary" />
+                </div>
+                <SheetTitle className="text-xl font-bold tracking-tight">Filter Orders</SheetTitle>
+              </div>
+              <SheetDescription className="text-sm">
                 Narrow down your order list based on specific criteria.
               </SheetDescription>
             </SheetHeader>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="status">Order Status</Label>
+          <div className="flex-1 overflow-y-auto p-6 space-y-7">
+            {/* Order Status */}
+            <div className="space-y-3">
+              <Label htmlFor="status" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Order Status
+              </Label>
               <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
-                <SelectTrigger id="status" className="w-full bg-background border-border">
+                <SelectTrigger id="status" className="h-11 w-full bg-muted/20 border-border rounded-xl shadow-sm focus:ring-2 focus:ring-primary/20 transition-all">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
-                <SelectContent className="border-border">
-                  <SelectItem value="All">All Statuses</SelectItem>
+                <SelectContent className="rounded-xl border-border shadow-md">
+                  <SelectItem value="All" className="font-medium">All Statuses</SelectItem>
                   {LEGACY_TABS.filter(t => t.id !== "All").map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    <SelectItem key={t.id} value={t.id} className="font-medium">{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="paymentStatus">Payment Status</Label>
+            {/* Payment Status */}
+            <div className="space-y-3">
+              <Label htmlFor="paymentStatus" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Payment Status
+              </Label>
               <Select value={filters.paymentStatus} onValueChange={(v) => setFilters(f => ({ ...f, paymentStatus: v }))}>
-                <SelectTrigger id="paymentStatus" className="w-full bg-background border-border">
+                <SelectTrigger id="paymentStatus" className="h-11 w-full bg-muted/20 border-border rounded-xl shadow-sm focus:ring-2 focus:ring-primary/20 transition-all">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
-                <SelectContent className="border-border">
-                  <SelectItem value="All">All</SelectItem>
-                  <SelectItem value="Paid">Paid</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
+                <SelectContent className="rounded-xl border-border shadow-md">
+                  <SelectItem value="All" className="font-medium">All Payments</SelectItem>
+                  <SelectItem value="Paid" className="font-medium text-emerald-600 dark:text-emerald-400">Paid</SelectItem>
+                  <SelectItem value="Unpaid" className="font-medium text-amber-600 dark:text-amber-400">Unpaid</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="customer">Customer Name</Label>
+            {/* Customer Name */}
+            <div className="space-y-3">
+              <Label htmlFor="customer" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Customer Name
+              </Label>
               <Input 
                 id="customer"
                 value={filters.customer}
                 onChange={(e) => setFilters(f => ({ ...f, customer: e.target.value }))}
                 placeholder="E.g. John Doe"
-                className="bg-background border-border"
+                className="h-11 bg-muted/20 border-border rounded-xl shadow-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
           </div>
           
-          <div className="p-6 border-t border-border bg-muted/30">
+          <div className="p-6 border-t border-border bg-muted/10 backdrop-blur-sm">
             <div className="flex gap-3">
               <Button 
                 variant="outline" 
-                className="flex-1"
+                className="flex-1 rounded-xl h-11 font-semibold text-slate-800 dark:text-slate-200 border-border shadow-sm hover:bg-muted/50 transition-colors"
                 onClick={() => setFilters({ status: "All", paymentStatus: "All", customer: "" })}
               >
                 Clear All
               </Button>
               <Button 
-                className="flex-1 bg-gradient-primary text-white shadow-glow"
+                className="flex-1 rounded-xl h-11 bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary/95 hover:shadow-lg transition-all active:scale-[0.98]"
                 onClick={() => setFiltersOpen(false)}
               >
                 Apply Filters

@@ -187,15 +187,15 @@
 .driver-order-card {
   background: var(--color-bg);
   border: 1.5px solid var(--color-border);
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
 }
 
 .driver-order-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .driver-order-id {
@@ -410,10 +410,10 @@
 
 .driver-btn-complete {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   font-weight: 800;
-  font-size: 13px;
-  border: 2px solid var(--color-border);
+  font-size: 12px;
+  border: 1.5px solid var(--color-border);
   text-transform: uppercase;
   cursor: pointer;
   display: inline-flex;
@@ -445,6 +445,29 @@
 .driver-btn-complete:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.driver-btn-exception {
+  width: 100%;
+  background: transparent;
+  color: var(--color-muted);
+  border: none;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+  margin-top: 4px;
+}
+
+.driver-btn-exception:hover {
+  color: var(--color-fg);
 }
 
 /* Minimalist Monochrome Modals */
@@ -699,38 +722,34 @@
 .driver-vertical-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.driver-vertical-metrics > :first-child {
-  grid-column: 1 / -1;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .driver-vertical-metric-card {
   background: var(--color-bg);
   border: 1.5px solid var(--color-border);
-  padding: 16px;
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
 }
 
 .driver-vertical-metric-card .metric-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--color-fg);
 }
 
 .driver-vertical-metric-card .metric-value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .driver-vertical-metric-card .metric-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-muted);
 }
 
@@ -738,7 +757,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .driver-status-pill {
@@ -756,11 +775,14 @@
 
 .driver-status-pill.accepted { background: var(--color-light-gray); }
 .driver-status-pill.verified { background: var(--color-bg); }
+.driver-status-pill.started { background: var(--color-bg); border-style: double; }
+.driver-status-pill.delivered { background: var(--color-fg); color: var(--color-bg); }
+.driver-status-pill.failed { background: var(--color-bg); border-style: dashed; color: var(--color-muted); }
 
 .driver-order-details {
   font-size: 12px;
-  margin-bottom: 16px;
-  line-height: 1.5;
+  margin-bottom: 6px;
+  line-height: 1.4;
   color: var(--color-fg);
 }
 
@@ -788,13 +810,13 @@
 .driver-summary-card {
   background: var(--color-bg);
   border: 1.5px solid var(--color-border);
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
   color: var(--color-fg);
 }
 
 .driver-summary-date {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-muted);
 }
 
@@ -802,29 +824,29 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1.5px solid var(--color-border);
 }
 
 .driver-badge {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   background: var(--color-light-gray);
-  padding: 4px 8px;
+  padding: 3px 6px;
   border: 1.5px solid var(--color-border);
   color: var(--color-fg);
 }
 
 .driver-item-row {
   display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .driver-item-image {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   background: var(--color-light-gray);
   border: 1.5px solid var(--color-border);
   display: flex;
@@ -835,23 +857,23 @@
 .driver-item-details { flex: 1; }
 
 .driver-item-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: var(--color-fg);
 }
 
 .driver-item-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-muted);
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .driver-card-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   color: var(--color-fg);
 }
 
@@ -911,3 +933,45 @@
 
 .driver-info-box { background: var(--color-light-gray); }
 .driver-warning-box { background: var(--color-bg); border-style: dashed; }
+
+/* Delivery Countdown Badge Styles */
+.delivery-countdown {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.countdown-green {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.countdown-orange {
+  background-color: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.countdown-red {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  animation: pulse-border 2s infinite ease-in-out;
+}
+
+@keyframes pulse-border {
+  0% {
+    border-color: #fecaca;
+  }
+  50% {
+    border-color: #ef4444;
+  }
+  100% {
+    border-color: #fecaca;
+  }
+}

@@ -19,7 +19,7 @@ export function PickerHistory() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [showExamples, setShowExamples] = useState(true)
+  const [showExamples, setShowExamples] = useState(false)
 
   useEffect(() => {
     const loadHistory = async () => {

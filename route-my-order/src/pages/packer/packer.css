@@ -81,14 +81,14 @@
 /* Metrics grid (Compact) */
 .packer-metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-bottom: 16px;
 }
 
 @media (max-width: 480px) {
   .packer-metrics {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -380,20 +380,26 @@
   margin-top: 8px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 13px;
   color: var(--color-fg);
-  font-weight: 700;
+  font-weight: 800;
   background: var(--color-bg);
-  padding: 4px 8px;
-  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border: 2px solid var(--color-border);
   cursor: pointer;
   text-transform: uppercase;
+  transition: all 0.15s ease;
+}
+
+.packer-item-toggle:hover {
+  background-color: var(--color-light-gray);
 }
 
 .packer-item-toggle.active { 
   color: var(--color-bg); 
   background: var(--color-fg);
+  border-color: var(--color-fg);
 }
 
 .packer-check-circle {
@@ -745,15 +751,19 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  color: var(--color-fg);
+  color: var(--color-muted);
   padding: 4px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
+  border: none;
+  background: transparent;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
 }
 .packer-item-flag:hover {
-  background-color: var(--color-fg);
-  color: var(--color-bg);
+  color: #ef4444;
+  background: transparent;
 }
 
 .packer-flag-box {

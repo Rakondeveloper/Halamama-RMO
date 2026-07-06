@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { OrderTable } from "@/components/orders/OrderTable";
-import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { type Order } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
 import { useState, useEffect } from "react";
 import { BulkActionBar } from "@/components/orders/BulkActionBar";
 import { AssignDriverDialog } from "@/components/orders/AssignDriverDialog";
+import { AssignZoneDialog } from "@/components/orders/AssignZoneDialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/ready")({
@@ -23,6 +25,8 @@ function ReadyPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
+  const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
+  const { data: allOrders = [] } = useOrders();
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
@@ -33,7 +37,7 @@ function ReadyPage() {
     navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
   };
 
-  const orders = MOCK_ORDERS.filter(o => o.status === "Ready to Assign");
+  const orders = allOrders.filter(o => o.status === "Ready to Assign");
 
   const onSelect = (id: string, selected: boolean) => {
     setSelectedIds((prev) => {
@@ -79,15 +83,25 @@ function ReadyPage() {
           <BulkActionBar
             count={selectedIds.size}
             onClear={() => setSelectedIds(new Set())}
+            onAssignZone={() => setZoneDialogOpen(true)}
             onAssignDriver={() => setDriverDialogOpen(true)}
           />
 
+          <AssignZoneDialog
+            open={zoneDialogOpen}
+            onOpenChange={setZoneDialogOpen}
+            selectedCount={selectedIds.size}
+            onAssign={(zone, zoneName, overrideExisting) => {
+              toast.success(`Assigned zone "${zoneName}" to ${selectedIds.size} order(s)${overrideExisting ? " (Override)" : ""}`);
+              setSelectedIds(new Set());
+            }}
+          />
           <AssignDriverDialog
             open={driverDialogOpen}
             onOpenChange={setDriverDialogOpen}
             selectedCount={selectedIds.size}
-            onAssign={(driver, force) => {
-              toast.success(`Assigned driver ${driver} to ${selectedIds.size} order(s)${force ? " (Forced)" : ""}`);
+            onAssign={(driver) => {
+              toast.success(`Assigned driver ${driver} to ${selectedIds.size} order(s)`);
               setSelectedIds(new Set());
             }}
           />

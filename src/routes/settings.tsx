@@ -6,11 +6,13 @@ import { SystemSettings } from "@/components/settings/SystemSettings";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { RejectionReasons } from "@/components/settings/RejectionReasons";
 import { ZoneManagement } from "@/components/settings/ZoneManagement";
+import { VendorLocations } from "@/components/settings/VendorLocations";
 import {
   Settings2,
   Users,
   CircleSlash,
   MapPin,
+  Store,
 } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
@@ -23,6 +25,7 @@ export const Route = createFileRoute("/settings")({
 const TABS = [
   { value: "system", label: "System Settings", icon: Settings2 },
   { value: "users", label: "User Management", icon: Users },
+  { value: "vendor-locations", label: "Vendor Locations", icon: Store },
   { value: "rejection", label: "Rejection Reasons", icon: CircleSlash },
   { value: "zones", label: "Zones", icon: MapPin },
 ];
@@ -59,8 +62,13 @@ function SettingsPage() {
 
             {/* ── User Management ── */}
             <TabsContent value="users">
+              <UserManagement />
+            </TabsContent>
+
+            {/* ── Vendor Locations ── */}
+            <TabsContent value="vendor-locations">
               <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
-                <UserManagement />
+                <VendorLocations />
               </div>
             </TabsContent>
 
@@ -80,22 +88,6 @@ function SettingsPage() {
           </Tabs>
         </main>
       </div>
-    </div>
-  );
-}
-
-/* ── Placeholder for future tabs ── */
-function PlaceholderTab({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-12 shadow-soft text-center">
-      <div className="mx-auto h-16 w-16 rounded-2xl bg-muted grid place-items-center mb-4">
-        <Settings2 className="h-7 w-7 text-muted-foreground" />
-      </div>
-      <h2 className="text-lg font-bold">{title}</h2>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
-      <p className="text-xs text-muted-foreground mt-4">
-        This section is under development and will be available soon.
-      </p>
     </div>
   );
 }

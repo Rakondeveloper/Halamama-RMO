@@ -1,13 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { LEGACY_TABS, type LegacyTabId, type LegacyTab } from "@/lib/orders";
 import { cn } from "@/lib/utils";
-import { ChevronDown } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export function OrdersTabs({
   activeTab,
@@ -85,10 +78,10 @@ export function OrdersTabs({
       onMouseMove={handleMouseMove}
     >
       {LEGACY_TABS.reduce<React.ReactNode[]>((acc, tab) => {
-        const REQUEST_TYPE_TABS = ["Returns & Replacements", "Replacement", "Exchange"];
+        const EXCLUDED_TABS = ["Returns & Replacements", "Replacement", "Exchange", "Delivery Failed"];
         
-        // Skip these as they will be rendered in the dropdown
-        if (REQUEST_TYPE_TABS.includes(tab.id)) {
+        // Skip these as they are now in the sidebar After-Sales Operations group
+        if (EXCLUDED_TABS.includes(tab.id)) {
           return acc;
         }
 
@@ -137,50 +130,6 @@ export function OrdersTabs({
         );
 
         acc.push(TabButton);
-
-        // Insert Request Type dropdown after Delivered
-        if (tab.id === "Delivered") {
-          const requestTabs = LEGACY_TABS.filter((t) => REQUEST_TYPE_TABS.includes(t.id));
-          const isRequestTypeActive = REQUEST_TYPE_TABS.includes(activeTab);
-          
-          acc.push(
-            <DropdownMenu key="request-type-dropdown">
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={isRequestTypeActive}
-                  className={cn(
-                    "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold transition-all duration-200 select-none outline-none border cursor-pointer",
-                    isRequestTypeActive
-                      ? "border-amber-400 bg-amber-50 text-amber-700 shadow-sm dark:bg-amber-500/10 dark:text-amber-400"
-                      : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  {isRequestTypeActive && (
-                    <span className="absolute -top-0.5 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-amber-500" />
-                  )}
-                  <span>Request Type</span>
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-48 font-medium">
-                {requestTabs.map((reqTab) => (
-                  <DropdownMenuItem
-                    key={reqTab.id}
-                    onClick={() => onTabChange(reqTab.id)}
-                    className="flex items-center justify-between cursor-pointer"
-                  >
-                    {reqTab.label}
-                    <span className="rounded-full bg-red-100 text-red-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums dark:bg-red-900/30 dark:text-red-400">
-                      {tabCounts[reqTab.id] ?? 0}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        }
 
         return acc;
       }, [])}

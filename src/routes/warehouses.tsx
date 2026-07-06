@@ -15,6 +15,7 @@ import {
   Users,
   Activity,
   X,
+  Boxes,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/warehouses")({
   head: () => ({
@@ -55,11 +57,40 @@ interface WarehouseBranch {
   activeOrders?: number;
 }
 
+const WAREHOUSE_INVENTORY: Record<
+  string,
+  Array<{ name: string; sku: string; qty: number; price: number; status: "In Stock" | "Low Stock" | "Out of Stock" }>
+> = {
+  F01: [
+    { name: "Frida Baby NoseFrida Saline Snot Spray", sku: "NS-SPNC-1P-0200", qty: 150, price: 31.00, status: "In Stock" },
+    { name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", qty: 45, price: 599.00, status: "In Stock" },
+    { name: "Happy Hop 6-in-1 Play Center", sku: "9060", qty: 12, price: 1999.00, status: "Low Stock" },
+    { name: "Happy Hop Double Water Slide – Deluxe", sku: "9029", qty: 8, price: 1499.00, status: "Low Stock" },
+  ],
+  F02: [
+    { name: "Frida Baby NoseFrida Saline Snot Spray", sku: "NS-SPNC-1P-0200", qty: 50, price: 31.00, status: "In Stock" },
+    { name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", qty: 15, price: 599.00, status: "In Stock" },
+  ],
+  MWO: [
+    { name: "HalaMama Premium Wooden Playground Set", sku: "HMP-WPS", qty: 15, price: 3499.00, status: "In Stock" },
+    { name: "Bestway Apx 365 Round Pool Set (12' x 30\")", sku: "561KC", qty: 28, price: 799.00, status: "In Stock" },
+    { name: "Intex Prism Frame Rectangular Pool Set", sku: "26790", qty: 14, price: 899.00, status: "In Stock" },
+    { name: "Step2 Woodland Climber & Slide", sku: "810200", qty: 6, price: 1249.00, status: "Low Stock" },
+    { name: "Little Tikes Jump 'n Slide Bouncer", sku: "620072", qty: 0, price: 1599.00, status: "Out of Stock" },
+  ],
+  VS: [
+    { name: "Smoby Green XL Slide", sku: "820304", qty: 120, price: 399.00, status: "In Stock" },
+    { name: "Bestway Flowclear Pool Cover (12ft)", sku: "58034", qty: 200, price: 149.00, status: "In Stock" },
+    { name: "Peg Perego John Deere Ground Force Tractor", sku: "OR0047", qty: 22, price: 2199.00, status: "In Stock" },
+    { name: "Smoby Tefal Studio Kitchen XL", sku: "311045", qty: 5, price: 649.00, status: "Low Stock" },
+  ],
+};
+
 const INITIAL_WAREHOUSES: WarehouseBranch[] = [
   {
     id: "1",
     code: "F01",
-    location: "Doha Central Fulfilment, Qatar",
+    location: "Fulfillment Center Hilal (Street - 230, Zone - 42, Building No - 151, الدوحة, Qatar)",
     status: "Active",
     capacity: "45,000 sq ft",
     staffCount: 24,
@@ -68,7 +99,7 @@ const INITIAL_WAREHOUSES: WarehouseBranch[] = [
   {
     id: "2",
     code: "F02",
-    location: "Al Wakrah Hub, Qatar",
+    location: "Main Warehouse - Safety Stock (Birkat Al Awamer, Birkat Al Awamer, Qatar)",
     status: "Active",
     capacity: "22,000 sq ft",
     staffCount: 12,
@@ -76,17 +107,17 @@ const INITIAL_WAREHOUSES: WarehouseBranch[] = [
   },
   {
     id: "3",
-    code: "F03",
-    location: "Al Rayyan Depot, Qatar",
-    status: "Inactive",
+    code: "MWO",
+    location: "Main Warehouse Outdoor (Birkat Al Awamer, Birkat Al Awamer, Qatar)",
+    status: "Active",
     capacity: "18,500 sq ft",
-    staffCount: 0,
-    activeOrders: 0,
+    staffCount: 15,
+    activeOrders: 35,
   },
   {
     id: "4",
-    code: "F04",
-    location: "Lusail Express Branch, Qatar",
+    code: "VS",
+    location: "Virtual Stock (Qatar)",
     status: "Active",
     capacity: "15,000 sq ft",
     staffCount: 8,
@@ -175,14 +206,14 @@ function WarehousesPage() {
         warehouses.map((w) =>
           w.id === selectedWarehouse.id
             ? {
-                ...w,
-                code: formData.code.toUpperCase(),
-                location: formData.location,
-                status: formData.status,
-                capacity: formData.capacity,
-                staffCount: formData.staffCount,
-                activeOrders: formData.activeOrders,
-              }
+              ...w,
+              code: formData.code.toUpperCase(),
+              location: formData.location,
+              status: formData.status,
+              capacity: formData.capacity,
+              staffCount: formData.staffCount,
+              activeOrders: formData.activeOrders,
+            }
             : w,
         ),
       );
@@ -586,6 +617,60 @@ function WarehousesPage() {
 
                     <span className="text-muted-foreground">Dispatch Type:</span>
                     <span className="font-medium text-foreground">Same-Day / Next-Day Delivery</span>
+                  </div>
+                </div>
+
+                {/* ── Inventory Stock Section ── */}
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-soft">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Boxes className="h-4 w-4 text-muted-foreground" />
+                    Inventory & Stock Items
+                  </h3>
+
+                  <div className="overflow-x-auto rounded-lg border border-border/60">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40 text-muted-foreground font-semibold">
+                          <th className="px-4 py-2.5">Product Name</th>
+                          <th className="px-4 py-2.5">SKU</th>
+                          <th className="px-4 py-2.5 text-right">Qty</th>
+                          <th className="px-4 py-2.5 text-right">Price</th>
+                          <th className="px-4 py-2.5 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50 text-[11px]">
+                        {(WAREHOUSE_INVENTORY[selectedWarehouse.code] || []).length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
+                              No inventory items registered for this location.
+                            </td>
+                          </tr>
+                        ) : (
+                          (WAREHOUSE_INVENTORY[selectedWarehouse.code] || []).map((item) => (
+                            <tr key={item.sku} className="hover:bg-muted/10 transition-colors">
+                              <td className="px-4 py-2.5 font-medium text-foreground max-w-[150px] truncate" title={item.name}>
+                                {item.name}
+                              </td>
+                              <td className="px-4 py-2.5 font-mono text-muted-foreground">{item.sku}</td>
+                              <td className="px-4 py-2.5 text-right font-semibold">{item.qty}</td>
+                              <td className="px-4 py-2.5 text-right text-muted-foreground">QAR {item.price.toFixed(2)}</td>
+                              <td className="px-4 py-2.5 text-right">
+                                <span className={cn(
+                                  "inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold border",
+                                  item.status === "In Stock"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40"
+                                    : item.status === "Low Stock"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/40"
+                                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/40"
+                                )}>
+                                  {item.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 

@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserPlus,
   Webhook,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,10 @@ function colourForEvent(type: EventType): string {
     case "placed":
       return "bg-emerald-600";
     case "delivery_failed":
+    case "cancelled":
       return "bg-red-600";
+    case "bypassed":
+      return "bg-amber-600";
     default:
       return "bg-muted-foreground";
   }
@@ -107,6 +111,10 @@ function getIcon(eventType: EventType) {
       return <CreditCard className={cls} />;
     case "delivery_failed":
       return <ExternalLink className={cls} />;
+    case "cancelled":
+      return <XCircle className={cls} />;
+    case "bypassed":
+      return <ShieldCheck className={cls} />;
     default:
       return <div className="h-2 w-2 rounded-full bg-white" />;
   }
@@ -123,7 +131,7 @@ export function TimelineDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-border/50 max-h-[85vh] flex flex-col shadow-2xl">
+      <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-border/50 max-h-[85vh] flex flex-col shadow-2xl">
         <DialogHeader className="px-6 py-5 border-b border-border/40 bg-muted/30">
           <DialogTitle className="text-xl font-semibold tracking-tight text-center text-foreground">
             Order Timeline
@@ -135,13 +143,29 @@ export function TimelineDialog({
 
         <div className="flex-1 overflow-y-auto px-2 py-6 sm:px-6">
           <div className="space-y-0 relative z-10 mx-auto max-w-lg">
-            {order.timeline.map((event, index) => (
-              <TimelineEventRow 
-                key={event.id} 
-                event={event} 
-                isLast={index === order.timeline.length - 1} 
-              />
-            ))}
+            {(() => {
+              const mainTimeline = order.timeline.filter(
+                (event) =>
+                  ![
+                    "recalculated",
+                    "updated",
+                    "added",
+                    "line_item_updated",
+                    "auto_fulfilled",
+                    "auto_marked_paid",
+                    "order_created",
+                    "item_picked",
+                    "item_packed",
+                  ].includes(event.type)
+              );
+              return mainTimeline.map((event, index) => (
+                <TimelineEventRow 
+                  key={event.id} 
+                  event={event} 
+                  isLast={index === mainTimeline.length - 1} 
+                />
+              ));
+            })()}
           </div>
         </div>
 

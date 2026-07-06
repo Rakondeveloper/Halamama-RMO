@@ -29,7 +29,8 @@ export type OrderStatus =
   | "Cancelled"
   | "Replacement"
   | "Exchange"
-  | "Installation";
+  | "Installation"
+  | "PayLater";
 
 export type LegacyTabId =
   | "New"
@@ -39,8 +40,7 @@ export type LegacyTabId =
   | "Picked"
   | "Packing"
   | "Ready to Assign"
-  | "Driver Accepted"
-  | "Started"
+  | "In Delivery"
   | "Delivery Failed"
   | "Delivered"
   | "Flags & Exceptions"
@@ -48,7 +48,8 @@ export type LegacyTabId =
   | "Returns & Replacements"
   | "Replacement"
   | "Exchange"
-  | "All";
+  | "All"
+  | "PayLater";
 
 export interface LegacyTab {
   id: LegacyTabId;
@@ -59,18 +60,7 @@ export interface LegacyTab {
 
 export const LEGACY_TABS: LegacyTab[] = [
   { id: "New", label: "New", color: "text-sky-600 dark:text-sky-400", activeColor: "bg-sky-500" },
-  {
-    id: "Installation",
-    label: "Installation",
-    color: "text-emerald-600 dark:text-emerald-400",
-    activeColor: "bg-emerald-500",
-  },
-  {
-    id: "Unfulfilled",
-    label: "Unfulfilled",
-    color: "text-orange-600 dark:text-orange-400",
-    activeColor: "bg-orange-500",
-  },
+  { id: "All", label: "All", color: "text-foreground", activeColor: "bg-primary" },
   {
     id: "Picking",
     label: "Picking",
@@ -96,16 +86,16 @@ export const LEGACY_TABS: LegacyTab[] = [
     activeColor: "bg-amber-500",
   },
   {
-    id: "Driver Accepted",
-    label: "Driver Accepted",
+    id: "In Delivery",
+    label: "In Delivery",
     color: "text-blue-600 dark:text-blue-400",
     activeColor: "bg-blue-500",
   },
   {
-    id: "Started",
-    label: "Started",
-    color: "text-cyan-600 dark:text-cyan-400",
-    activeColor: "bg-cyan-500",
+    id: "Delivered",
+    label: "Delivered",
+    color: "text-emerald-600 dark:text-emerald-400",
+    activeColor: "bg-emerald-500",
   },
   {
     id: "Delivery Failed",
@@ -114,10 +104,16 @@ export const LEGACY_TABS: LegacyTab[] = [
     activeColor: "bg-red-500",
   },
   {
-    id: "Delivered",
-    label: "Delivered",
+    id: "Installation",
+    label: "Installation",
     color: "text-emerald-600 dark:text-emerald-400",
     activeColor: "bg-emerald-500",
+  },
+  {
+    id: "Unfulfilled",
+    label: "Unfulfilled",
+    color: "text-orange-600 dark:text-orange-400",
+    activeColor: "bg-orange-500",
   },
   {
     id: "Flags & Exceptions",
@@ -149,7 +145,12 @@ export const LEGACY_TABS: LegacyTab[] = [
     color: "text-teal-600 dark:text-teal-400",
     activeColor: "bg-teal-500",
   },
-  { id: "All", label: "All", color: "text-foreground", activeColor: "bg-primary" },
+  {
+    id: "PayLater",
+    label: "Pay Later",
+    color: "text-purple-600 dark:text-purple-400",
+    activeColor: "bg-purple-500",
+  },
 ];
 
 export interface Order {
@@ -164,6 +165,8 @@ export interface Order {
   items: number;
   status: OrderStatus;
   returns?: { type: "Return"; count: number };
+  /** Detailed return/replacement items for this order. */
+  returnItems?: OrderReturn[];
   city: string;
   coordinator: string;
   driver: string | null;
@@ -175,7 +178,19 @@ export interface Order {
   pickingStatus?: string;
   packingStatus?: string;
   bags?: number;
+  tags?: string[];
+  deliveryDate?: string;
+  notes?: string;
+  payment?: any;
+  paymentMethod?: string;
+  paymentBalance?: number;
+  lat?: number;
+  lng?: number;
+  itemsList?: OrderItemType[];
+  zone?: string;
 }
+
+export type ItemFulfillmentType = "FC" | "MWH" | "VL_SUPPLIER" | "VL_HMA";
 
 export interface OrderItemType {
   id: string;
@@ -189,6 +204,14 @@ export interface OrderItemType {
   fcName: string;
   bin: string;
   status: "Prepared" | "Accepted" | "Allocated" | "Pending";
+  /**
+   * Fulfillment type for this item:
+   * - FC: standard fulfillment center item (normal delivery flow)
+   * - MWH: main warehouse item requiring installation scheduling
+   * - VL_SUPPLIER: virtual/supplier item requiring installation scheduling
+   * - VL_HMA: vendor location item fulfilled by HalaMama staff (VL portal)
+   */
+  itemType?: ItemFulfillmentType;
   /** Whether this item has been scheduled for installation */
   isScheduled?: boolean;
   /** ISO timestamp of when it was scheduled */
@@ -197,13 +220,30 @@ export interface OrderItemType {
   installationDriver?: string | null;
 }
 
+export type ReturnStatus = "pending" | "picked up" | "completed";
+
 export interface OrderReturn {
   id: string;
   itemName: string;
+  sku?: string;
   type: "return" | "replacement";
   qty: number;
-  status: "pending" | "picked up" | "completed";
+  status: ReturnStatus;
   source: "Shopify" | "Web";
+  /** Return reason (e.g. damaged, wrong_item, near_expiry, changed_mind, other). */
+  reason?: string;
+  /** Admin notes entered when creating the return. */
+  adminNote?: string;
+  /** Driver's note when collecting the return. */
+  driverNote?: string;
+  /** ISO timestamp when the return was created by admin. */
+  createdAt?: string;
+  /** ISO timestamp when driver confirmed collection. */
+  collectedAt?: string;
+  /** Email of the driver who collected the return. */
+  collectedBy?: string;
+  /** ISO timestamp when admin confirmed warehouse receipt. */
+  completedAt?: string;
 }
 
 export interface OrderTimelineEvent {
@@ -223,30 +263,32 @@ export interface OrderTimelineEvent {
   /** Whether this event supports a "View Raw Details" action. */
   hasRawDetails?: boolean;
   type:
-    | "added"
-    | "placed"
-    | "allocated"
-    | "picking_started"
-    | "picking_completed"
-    | "packing_started"
-    | "packing_completed"
-    | "recalculated"
-    | "updated"
-    | "driver_assigned"
-    | "driver_accepted"
-    | "started"
-    | "out_for_delivery"
-    | "delivered"
-    | "item_picked"
-    | "item_packed"
-    | "picker_assigned"
-    | "packer_assigned"
-    | "bags_verified"
-    | "order_created"
-    | "auto_fulfilled"
-    | "auto_marked_paid"
-    | "line_item_updated"
-    | "delivery_failed";
+  | "added"
+  | "placed"
+  | "allocated"
+  | "picking_started"
+  | "picking_completed"
+  | "packing_started"
+  | "packing_completed"
+  | "recalculated"
+  | "updated"
+  | "driver_assigned"
+  | "driver_accepted"
+  | "started"
+  | "out_for_delivery"
+  | "delivered"
+  | "item_picked"
+  | "item_packed"
+  | "picker_assigned"
+  | "packer_assigned"
+  | "bags_verified"
+  | "order_created"
+  | "auto_fulfilled"
+  | "auto_marked_paid"
+  | "line_item_updated"
+  | "delivery_failed"
+  | "cancelled"
+  | "bypassed";
 }
 
 export interface EnrichedOrder extends Order {
@@ -685,7 +727,445 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     });
   }
 
+  // Load custom timeline events from localStorage in demo mode
+  if (typeof window !== "undefined") {
+    try {
+      const customRaw = localStorage.getItem("hm_custom_timeline_events");
+      if (customRaw) {
+        const customEvents = JSON.parse(customRaw);
+        const filtered = customEvents.filter((e: any) => e.orderId === base.id);
+        ev.push(...filtered);
+      }
+    } catch (e) {
+      console.warn("Failed to load custom timeline events", e);
+    }
+  }
+
   return ev;
+}
+
+/** Get mock order items list dynamically based on order ID and item count. */
+export function getMockOrderItems(id: string, totalItems: number): OrderItemType[] {
+  let itemsList: OrderItemType[] = [];
+
+  if (id === "HM99005") {
+    itemsList = [
+      {
+        id: "test-item-1",
+        name: "Happy Hop 6-in-1 Play Center",
+        sku: "9060",
+        barcode: "90600000001",
+        image: "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1999.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-100 / 1",
+        status: "Prepared",
+        itemType: "FC",
+      },
+      {
+        id: "test-item-2",
+        name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+        sku: "561KC",
+        barcode: "56100000002",
+        image: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 799.0,
+        fc: "MWO",
+        fcName: "Main Warehouse Outdoor",
+        bin: "B-100 / 2",
+        status: "Prepared",
+        itemType: "MWH",
+      },
+      {
+        id: "test-item-3",
+        name: "Smoby Green XL Slide",
+        sku: "820304",
+        barcode: "82030400003",
+        image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 399.0,
+        fc: "VS",
+        fcName: "Virtual Stock",
+        bin: "B-100 / 3",
+        status: "Prepared",
+        itemType: "VL_SUPPLIER",
+      },
+    ];
+  } else if (id === "HM68229") {
+    itemsList = [
+      {
+        id: "si-item-1",
+        name: "Happy Hop 6-in-1 Play Center",
+        sku: "9060",
+        barcode: "90600000001",
+        image: "https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1999.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-100 / 1",
+        status: "Prepared",
+        itemType: "FC",
+      },
+      {
+        id: "si-item-2",
+        name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+        sku: "561KC",
+        barcode: "56100000002",
+        image: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 799.0,
+        fc: "MWO",
+        fcName: "Main Warehouse Outdoor",
+        bin: "B-100 / 2",
+        status: "Prepared",
+        itemType: "MWH",
+      },
+      {
+        id: "si-item-3",
+        name: "Smoby Green XL Slide",
+        sku: "820304",
+        barcode: "82030400003",
+        image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 399.0,
+        fc: "VS",
+        fcName: "Virtual Stock",
+        bin: "B-100 / 3",
+        status: "Prepared",
+        itemType: "VL_SUPPLIER",
+      },
+      {
+        id: "si-item-4",
+        name: "Happy Hop Double Water Slide – Deluxe",
+        sku: "9029",
+        barcode: "90290000004",
+        image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1499.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-100 / 4",
+        status: "Prepared",
+      },
+    ];
+  } else if (id === "HM68258") {
+    itemsList = [
+      {
+        id: "si-item-5",
+        name: "Bestway H2Ogo! Leap & Play Mega Water Park",
+        sku: "53427",
+        barcode: "53427000005",
+        image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1299.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-101 / 1",
+        status: "Prepared",
+      },
+      {
+        id: "si-item-6",
+        name: "Bestway Flowclear Pool Cover (12ft)",
+        sku: "58034",
+        barcode: "58034000006",
+        image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 149.0,
+        fc: "VS",
+        fcName: "Virtual Stock",
+        bin: "B-101 / 2",
+        status: "Prepared",
+      },
+    ];
+  } else if (id === "HM68268") {
+    itemsList = [
+      {
+        id: "si-item-7",
+        name: "Intex Prism Frame Rectangular Pool Set",
+        sku: "26790",
+        barcode: "26790000007",
+        image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 899.0,
+        fc: "MWO",
+        fcName: "Main Warehouse Outdoor",
+        bin: "B-102 / 1",
+        status: "Prepared",
+      },
+    ];
+  } else if (id === "HM64839") {
+    itemsList = [
+      {
+        id: "si-item-8",
+        name: "Nip Soother With Hook (Blue)",
+        sku: "412217",
+        barcode: "41221700008",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 25.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-103 / 1",
+        status: "Prepared",
+      },
+    ];
+  } else if (id === "HM68300") {
+    itemsList = [
+      {
+        id: "si-item-9",
+        name: "HalaMama Premium Wooden Playground Set",
+        sku: "HMP-WPS",
+        barcode: "HMPWPS0001",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 3499.0,
+        fc: "MWO",
+        fcName: "Main Warehouse Outdoor",
+        bin: "B-300 / 1",
+        status: "Prepared",
+        itemType: "MWH",
+      },
+    ];
+  } else if (id === "HM64110") {
+    itemsList = [
+      {
+        id: "vl-item-1",
+        name: "Mima Xari Stroller (Camel)",
+        sku: "MX-STR-CAM",
+        barcode: "MXSTRCAM001",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 3999.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-01",
+        status: "Prepared",
+        itemType: "VL_HMA",
+        locationId: "loc-1",
+      },
+      {
+        id: "vl-item-2",
+        name: "Stokke Tripp Trapp High Chair (Oak)",
+        sku: "ST-TTHC-OAK",
+        barcode: "STTTHCOAK001",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1199.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-02",
+        status: "Prepared",
+        itemType: "VL_HMA",
+        locationId: "loc-1",
+      },
+    ];
+  } else if (id === "HM99001") {
+    itemsList = [
+      {
+        id: "vl-item-3",
+        name: "Chicco Next2Me Side Sleeping Crib",
+        sku: "CC-N2M-CRIB",
+        barcode: "CCN2MCRIB01",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 899.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-03",
+        status: "Prepared",
+        itemType: "VL_HMA",
+        locationId: "loc-1",
+      },
+      {
+        id: "vl-item-4",
+        name: "Nuna Leaf Grow Lounger",
+        sku: "NL-GROW-LNG",
+        barcode: "NLGROWLNG01",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1299.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-04",
+        status: "Prepared",
+        itemType: "VL_HMA",
+        locationId: "loc-1",
+      },
+    ];
+  } else {
+    const totalItemsCount = totalItems || 1;
+    if (totalItemsCount === 1) {
+      itemsList = [
+        {
+          id: "item-1",
+          name: "Frida Baby NoseFrida Saline Snot Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "9350764006338",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-252 / 4",
+          status: "Prepared",
+        },
+      ];
+    } else if (totalItemsCount === 2) {
+      itemsList = [
+        {
+          id: "item-1",
+          name: "Frida Baby NoseFrida Saline Snot Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "9350764006338",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-252 / 4",
+          status: "Prepared",
+        },
+        {
+          id: "item-3",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "561KC00001",
+          image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 799.0,
+          fc: "MWO",
+          fcName: "Main Warehouse Outdoor",
+          bin: "B-102 / 2",
+          status: "Prepared",
+        },
+      ];
+    } else if (totalItemsCount === 3) {
+      itemsList = [
+        {
+          id: "item-1",
+          name: "Frida Baby NoseFrida Saline Snot Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "9350764006338",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-252 / 4",
+          status: "Prepared",
+        },
+        {
+          id: "item-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "9350764006339",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-100 / 1",
+          status: "Allocated",
+        },
+        {
+          id: "item-3",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "561KC00001",
+          image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 799.0,
+          fc: "MWO",
+          fcName: "Main Warehouse Outdoor",
+          bin: "B-102 / 2",
+          status: "Prepared",
+        },
+      ];
+    } else {
+      itemsList = [
+        {
+          id: "item-1",
+          name: "Frida Baby NoseFrida Saline Snot Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "9350764006338",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-252 / 4",
+          status: "Prepared",
+        },
+        {
+          id: "item-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "9350764006339",
+          image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          fcName: "Fulfillment Center Hilal",
+          bin: "B-100 / 1",
+          status: "Allocated",
+        },
+        {
+          id: "item-3",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "561KC00001",
+          image: "https://images.unsplash.com/photo-1560090995-01b72abb4c06?w=100&h=100&fit=crop",
+          qty: 1,
+          price: 799.0,
+          fc: "MWO",
+          fcName: "Main Warehouse Outdoor",
+          bin: "B-102 / 2",
+          status: "Prepared",
+        },
+        {
+          id: "item-4",
+          name: "Smoby Green XL Slide",
+          sku: "820304",
+          barcode: "82030400001",
+          image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=100&h=100&fit=crop",
+          qty: totalItemsCount - 3,
+          price: 399.0,
+          fc: "VS",
+          fcName: "Virtual Stock",
+          bin: "B-103 / 1",
+          status: "Prepared",
+        },
+      ];
+    }
+  }
+
+  // Load cancelled items from localStorage in demo mode
+  let cancelledItemIds: string[] = [];
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("hm_cancelled_items");
+      if (raw) cancelledItemIds = JSON.parse(raw);
+    } catch { }
+  }
+
+  return itemsList.map((item) => {
+    if (cancelledItemIds.includes(item.id)) {
+      return { ...item, status: "Pending" as const };
+    }
+    return item as OrderItemType;
+  });
+}
+
+/** Get mock order total dynamically based on its items and payment information. */
+export function getMockOrderTotal(id: string, totalItems: number, payment?: any): number {
+  const itemsList = getMockOrderItems(id, totalItems);
+  const subtotal = itemsList.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const discount = payment?.discount ?? 0;
+  const shipping = payment?.shipping ?? 0;
+  return subtotal + shipping - discount;
 }
 
 /** Mock enriched order for the details page */
@@ -693,71 +1173,48 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
   const baseOrder = MOCK_ORDERS.find((o) => o.id === id);
   if (!baseOrder) return undefined;
 
-  const itemsList: OrderItemType[] = [
-    {
-      id: "item-1",
-      name: "Frida Baby NoseFrida Saline Snot Spray",
-      sku: "NS-SPNC-1P-0200",
-      barcode: "9350764006338",
-      image: "https://images.unsplash.com/photo-1584305574647-0cc9ebecf2fb?w=100&h=100&fit=crop",
-      qty: 3,
-      price: 31.0,
-      fc: "F01",
-      fcName: "Fulfillment Center Hilal",
-      bin: "B-252 / 4",
-      status: "Prepared",
-    },
-    ...(baseOrder.items > 1
-      ? [
-          {
-            id: "item-2",
-            name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
-            sku: "5021933",
-            barcode: "9350764006339",
-            image:
-              "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
-            qty: 1,
-            price: 599.0,
-            fc: "F01",
-            fcName: "Fulfillment Center Hilal",
-            bin: "B-100 / 1",
-            status: "Allocated",
-          } as OrderItemType,
-        ]
-      : []),
-  ];
+  const itemsList = getMockOrderItems(id, baseOrder.items);
+  const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment);
 
   return {
     ...baseOrder,
     zone: "No Zone",
     itemsList,
-    returnsList: baseOrder.returns
-      ? [
-          {
-            id: "ret-1",
-            itemName: "Beurer Sugar Machine With 50 Strips",
-            type: "return",
-            qty: 1,
-            status: "picked up",
-            source: "Shopify",
-          },
-        ]
+    returnsList: baseOrder.returnItems && baseOrder.returnItems.length > 0
+      ? baseOrder.returnItems
       : [],
     timeline: buildTimelineFor(baseOrder, itemsList),
-    payment: {
-      method: "Cash",
-      totalPaid: baseOrder.total,
-      cash: baseOrder.total,
-      card: 0,
-      subtotal: baseOrder.total - 10,
+    payment: baseOrder.payment ? {
+      ...baseOrder.payment,
+      subtotal: calculatedTotal - (baseOrder.payment.shipping ?? 0) + (baseOrder.payment.discount ?? 0),
+      total: calculatedTotal,
+      balance: (baseOrder as any).paymentBalance !== undefined 
+        ? (baseOrder as any).paymentBalance 
+        : (calculatedTotal - (baseOrder.payment.totalPaid ?? 0)),
+      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined 
+        ? (baseOrder as any).paymentBalance 
+        : (baseOrder.payment.balance ?? 0)),
+    } : {
+      method: ((baseOrder as any).paymentMethod as any) || "Cash",
+      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance ?? 0),
+      cash: ((baseOrder as any).paymentMethod || "Cash") === "Cash" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
+      card: ((baseOrder as any).paymentMethod || "Cash") === "Card" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
+      subtotal: calculatedTotal - 10,
       discount: 0,
       shipping: 10,
-      total: baseOrder.total,
-      balance: 0,
+      total: calculatedTotal,
+      balance: ((baseOrder as any).paymentBalance ?? 0),
       shippingMethod: "Standard Delivery",
     },
-    notes: "Please leave at the door if no one answers.",
-    shippingAddress: {
+    notes: baseOrder.notes || "Please leave at the door if no one answers.",
+    shippingAddress: id === "HM99005" ? {
+      line1: "Al Waab St",
+      line2: "Doha",
+      city: "Qatar",
+      country: "Qatar",
+      lat: 25.2638,
+      lng: 51.4822,
+    } : {
       line1: "Al rayyan al azizya, Home number 20",
       line2: "Al azizya",
       city: "Qatar",
@@ -769,18 +1226,38 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
       {
         fc: "F01",
         fcName: "Fulfillment Center Hilal",
-        items: [
-          { sku: "NS-SPNC-1P-0200", req: 3, available: 0 },
-          { sku: "5021933", req: 1, available: 0 },
-        ],
+        items: itemsList.map(item => ({
+          sku: item.sku,
+          req: item.qty,
+          available: item.fc === "F01" ? item.qty : 0,
+        })),
       },
       {
-        fc: "P63",
-        fcName: "Outlet P63",
-        items: [
-          { sku: "NS-SPNC-1P-0200", req: 3, available: 3 },
-          { sku: "5021933", req: 1, available: 0 },
-        ],
+        fc: "MWO",
+        fcName: "Main Warehouse Outdoor",
+        items: itemsList.map(item => ({
+          sku: item.sku,
+          req: item.qty,
+          available: item.fc === "MWO" ? item.qty : (item.sku === "561KC" || item.sku === "26790" ? 10 : 0),
+        })),
+      },
+      {
+        fc: "VS",
+        fcName: "Virtual Stock",
+        items: itemsList.map(item => ({
+          sku: item.sku,
+          req: item.qty,
+          available: item.fc === "VS" ? item.qty : (item.sku === "820304" || item.sku === "58034" ? 15 : 0),
+        })),
+      },
+      {
+        fc: "F02",
+        fcName: "Main Warehouse - Safety Stock",
+        items: itemsList.map(item => ({
+          sku: item.sku,
+          req: item.qty,
+          available: item.fc === "F02" ? item.qty : 5,
+        })),
       },
     ],
   };
@@ -801,6 +1278,41 @@ export const ACTIVE_STATUSES: OrderStatus[] = [
 
 export const MOCK_ORDERS: Order[] = [
   {
+    id: "HM99005",
+    customerId: "cust-99005",
+    tat: "00h 01m",
+    date: "Jun 27",
+    time: "10:55",
+    customer: { name: "Khalid Al-Nuaimi", email: "khalid.nuaimi@example.com", phone: "55776688" },
+    channel: "shopify",
+    items: 3,
+    status: "New",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: null,
+    packer: null,
+    total: 3197,
+    shopify: "Unfulfilled",
+    pickingStatus: "0/3 Picked",
+    packingStatus: "0/3 Packed",
+    bags: 0,
+    lat: 25.2638,
+    lng: 51.4822,
+    payment: {
+      subtotal: 3197,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 3197,
+      balance: 3197,
+      method: "Cash on Delivery",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+  },
+  {
     id: "HM59238",
     customerId: "cust-59238",
     tat: "642h 50m",
@@ -811,6 +1323,23 @@ export const MOCK_ORDERS: Order[] = [
     items: 0,
     status: "Cancelled",
     returns: { type: "Return", count: 1 },
+    returnItems: [
+      {
+        id: "ret-HM59238-1",
+        itemName: "Beurer Sugar Machine With 50 Strips",
+        sku: "BEU-SM-050",
+        type: "return",
+        qty: 1,
+        status: "completed",
+        source: "Web",
+        reason: "damaged",
+        adminNote: "Customer reported device not powering on.",
+        createdAt: "2026-04-16T18:40:00Z",
+        collectedAt: "2026-04-17T10:20:00Z",
+        collectedBy: "driver1",
+        completedAt: "2026-04-17T14:00:00Z",
+      },
+    ],
     city: "Doha",
     coordinator: "-",
     driver: "driver1",
@@ -822,6 +1351,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "0/0 Picked",
     packingStatus: "0/0 Packed",
     bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
   },
   {
     id: "HM59239",
@@ -833,6 +1364,23 @@ export const MOCK_ORDERS: Order[] = [
     channel: "5382175",
     items: 2,
     status: "Delivered",
+    returns: { type: "Return", count: 1 },
+    returnItems: [
+      {
+        id: "ret-HM59239-1",
+        itemName: "Philips Avent Natural Bottle 260ml",
+        sku: "PA-NB-260",
+        type: "return",
+        qty: 1,
+        status: "picked up",
+        source: "Web",
+        reason: "damaged",
+        adminNote: "Bottle had visible crack on arrival.",
+        createdAt: "2026-04-16T19:00:00Z",
+        collectedAt: "2026-04-17T09:15:00Z",
+        collectedBy: "irshad",
+      },
+    ],
     city: "Zone 50",
     coordinator: "-",
     driver: "irshad",
@@ -844,114 +1392,45 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "2/2 Picked",
     packingStatus: "2/2 Packed",
     bags: 1,
+    lat: 25.2279,
+    lng: 51.4941,
   },
   {
-    id: "HM59240",
-    customerId: "cust-59240",
-    tat: "642h 47m",
-    date: "Apr 16",
-    time: "18:37",
-    customer: { name: "ayah sukik", email: "ayahsukik@gmail.com", phone: "55571800" },
-    channel: "web",
-    items: 4,
-    status: "Delivered",
-    city: "Doha",
-    coordinator: "-",
-    driver: "farshad",
-    driverStatus: "Completed",
-    picker: "adhil",
-    packer: "mashood",
-    total: 1276,
-    shopify: "Fulfilled",
-    pickingStatus: "4/4 Picked",
-    packingStatus: "4/4 Packed",
-    bags: 2,
-  },
-  {
-    id: "HM59241",
-    customerId: "cust-59241",
-    tat: "642h 45m",
-    date: "Apr 16",
-    time: "18:39",
-    customer: { name: "amanda menzies", email: "amandamenzies1@gmail.com", phone: "50344139" },
-    channel: "web",
-    items: 1,
-    status: "Delivered",
-    city: "DOHA",
-    coordinator: "-",
-    driver: "nassim",
-    driverStatus: "Completed",
-    picker: "rahul",
-    packer: "packer1",
-    total: 129,
-    shopify: "Fulfilled",
-    pickingStatus: "1/1 Picked",
-    packingStatus: "1/1 Packed",
-    bags: 1,
-  },
-  {
-    id: "HM59242",
-    customerId: "cust-59242",
-    tat: "642h 41m",
-    date: "Apr 16",
-    time: "18:43",
-    customer: { name: "Nijin Mohammed navas", email: "nijinmohd@yahoo.com", phone: "33850648" },
-    channel: "web",
-    items: 1,
-    status: "Delivered",
-    city: "Kharthiyat",
-    coordinator: "-",
-    driver: "farshad",
-    driverStatus: "Completed",
-    picker: "noushad",
-    packer: "packer1",
-    total: 279,
-    shopify: "Fulfilled",
-    pickingStatus: "1/1 Picked",
-    packingStatus: "1/1 Packed",
-    bags: 1,
-  },
-  {
-    id: "HM59243",
-    customerId: "cust-59243",
-    tat: "12h 04m",
+    id: "HM59245",
+    customerId: "cust-59245",
+    tat: "02h 15m",
     date: "May 13",
-    time: "08:12",
-    customer: { name: "Layla Hassan", email: "layla.h@gmail.com", phone: "33112244" },
+    time: "11:00",
+    customer: { name: "Fatima Al-Thani", email: "fatima.thani@gmail.com", phone: "33442211" },
     channel: "shopify",
     items: 3,
-    status: "Ready to Assign",
-    city: "Lusail",
-    coordinator: "Omar",
-    driver: null,
-    picker: "rahul",
-    packer: "packer1",
-    total: 540,
-    shopify: "Pending",
-    pickingStatus: "3/3 Picked",
-    packingStatus: "3/3 Packed",
-    bags: 1,
-  },
-  {
-    id: "HM59244",
-    customerId: "cust-59244",
-    tat: "00h 22m",
-    date: "May 13",
-    time: "10:45",
-    customer: { name: "Khalid Saleh", email: "ksaleh@gmail.com", phone: "55667788" },
-    channel: "web",
-    items: 5,
     status: "New",
-    city: "Al Sadd",
+    city: "West Bay",
     coordinator: "-",
     driver: null,
     picker: null,
     packer: null,
-    total: 820,
-    shopify: "Unfulfilled",
-    pickingStatus: "0/5 Picked",
-    packingStatus: "0/5 Packed",
+    total: 1429,
+    shopify: "Pending",
+    pickingStatus: "0/3 Picked",
+    packingStatus: "0/3 Packed",
     bags: 0,
+    tags: ["PAYLATER", "PAYMENTLINKSENT"],
+    notes: "Customer chose Pay Later. Payment link sent: https://halamama.myshopify.com/checkouts/pay/c1b2c3d4e5f6",
+    payment: {
+      subtotal: 1429,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 1429,
+      balance: 1429,
+      method: "Shopify PayLater",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+    lat: 25.3286,
+    lng: 51.5310,
   },
   {
     id: "HM64110",
@@ -973,6 +1452,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "0/2 Picked",
     packingStatus: "0/2 Packed",
     bags: 0,
+    lat: 25.3286,
+    lng: 51.5310,
   },
   {
     id: "HM64112",
@@ -994,27 +1475,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "2/4 Picked",
     packingStatus: "0/4 Packed",
     bags: 0,
-  },
-  {
-    id: "HM64114",
-    customerId: "cust-64114",
-    tat: "26h 13m",
-    date: "May 26",
-    time: "08:30",
-    customer: { name: "Fatima Al-Kuwari", email: "fatima.k@halamama.com", phone: "77665544" },
-    channel: "shopify",
-    items: 3,
-    status: "Unfulfilled",
-    city: "Al Waab",
-    coordinator: "Rania",
-    driver: null,
-    picker: "adhil",
-    packer: null,
-    total: 490,
-    shopify: "Unfulfilled",
-    pickingStatus: "1/3 Picked",
-    packingStatus: "0/3 Packed",
-    bags: 0,
+    lat: 25.3713,
+    lng: 51.5476,
   },
   {
     id: "HM64116",
@@ -1036,6 +1498,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "3/3 Picked",
     packingStatus: "0/3 Packed",
     bags: 0,
+    lat: 25.4182,
+    lng: 51.5218,
   },
   {
     id: "HM64118",
@@ -1057,134 +1521,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "5/5 Picked",
     packingStatus: "3/5 Packed",
     bags: 1,
-  },
-  {
-    id: "HM64120",
-    customerId: "cust-64120",
-    tat: "20h 28m",
-    date: "May 26",
-    time: "14:15",
-    customer: { name: "Yousef Al-Malki", email: "yousef.m@live.com", phone: "33221199" },
-    channel: "web",
-    items: 1,
-    status: "Picked",
-    city: "Al Rayyan",
-    coordinator: "Rania",
-    driver: null,
-    picker: "noushad",
-    packer: "packer1",
-    total: 190,
-    shopify: "Pending",
-    pickingStatus: "1/1 Picked",
-    packingStatus: "0/1 Packed",
-    bags: 0,
-  },
-  {
-    id: "HM60100",
-    customerId: "cust-59244",
-    tat: "48h 12m",
-    date: "May 11",
-    time: "14:20",
-    customer: { name: "Khalid Saleh", email: "ksaleh@gmail.com", phone: "55667788" },
-    channel: "web",
-    items: 2,
-    status: "Delivered",
-    city: "Al Sadd",
-    coordinator: "-",
-    driver: "farshad",
-    driverStatus: "Completed",
-    picker: "rahul",
-    packer: "packer1",
-    total: 340,
-    shopify: "Fulfilled",
-    pickingStatus: "2/2 Picked",
-    packingStatus: "2/2 Packed",
-    bags: 1,
-  },
-  {
-    id: "HM60090",
-    customerId: "cust-59244",
-    tat: "120h 00m",
-    date: "May 8",
-    time: "09:15",
-    customer: { name: "Khalid Saleh", email: "ksaleh@gmail.com", phone: "55667788" },
-    channel: "shopify",
-    items: 1,
-    status: "Delivered",
-    city: "Al Sadd",
-    coordinator: "-",
-    driver: "irshad",
-    driverStatus: "Accepted",
-    picker: "adhil",
-    packer: null,
-    total: 195,
-    shopify: "Fulfilled",
-    pickingStatus: "1/1 Picked",
-    packingStatus: "0/1 Packed",
-    bags: 0,
-  },
-  {
-    id: "HM60101",
-    customerId: "cust-60101",
-    tat: "00h 42m",
-    date: "May 13",
-    time: "11:18",
-    customer: { name: "Maha Al-Kaabi", email: "maha.kaabi@gmail.com", phone: "55221109" },
-    channel: "shopify",
-    items: 3,
-    status: "Unfulfilled",
-    city: "West Bay",
-    coordinator: "Omar",
-    driver: null,
-    picker: null,
-    packer: null,
-    total: 455,
-    shopify: "Unfulfilled",
-    pickingStatus: "0/3 Picked",
-    packingStatus: "0/3 Packed",
-    bags: 0,
-  },
-  {
-    id: "HM60102",
-    customerId: "cust-60102",
-    tat: "01h 15m",
-    date: "May 13",
-    time: "11:44",
-    customer: { name: "Noora Salem", email: "noora.salem@gmail.com", phone: "55199220" },
-    channel: "web",
-    items: 6,
-    status: "Picked",
-    city: "The Pearl",
-    coordinator: "Rania",
-    driver: null,
-    picker: "adhil",
-    packer: null,
-    total: 690,
-    shopify: "Pending",
-    pickingStatus: "6/6 Picked",
-    packingStatus: "0/6 Packed",
-    bags: 2,
-  },
-  {
-    id: "HM60103",
-    customerId: "cust-60103",
-    tat: "02h 06m",
-    date: "May 13",
-    time: "12:08",
-    customer: { name: "Faisal Al-Marri", email: "faisal.marri@gmail.com", phone: "55987123" },
-    channel: "web",
-    items: 2,
-    status: "Ready to Assign",
-    city: "Al Waab",
-    coordinator: "Omar",
-    driver: null,
-    picker: "rahul",
-    packer: "mashood",
-    total: 315,
-    shopify: "Pending",
-    pickingStatus: "2/2 Picked",
-    packingStatus: "2/2 Packed",
-    bags: 1,
+    lat: 25.2764,
+    lng: 51.5385,
   },
   {
     id: "HM60104",
@@ -1207,6 +1545,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "4/4 Picked",
     packingStatus: "4/4 Packed",
     bags: 2,
+    lat: 25.4182,
+    lng: 51.5218,
   },
   {
     id: "HM60105",
@@ -1229,6 +1569,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "5/5 Picked",
     packingStatus: "5/5 Packed",
     bags: 3,
+    lat: 25.3183,
+    lng: 51.4358,
   },
   {
     id: "HM60106",
@@ -1251,6 +1593,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
+    lat: 25.2917,
+    lng: 51.4244,
   },
   {
     id: "HM60107",
@@ -1263,6 +1607,20 @@ export const MOCK_ORDERS: Order[] = [
     items: 2,
     status: "Replacement",
     returns: { type: "Return", count: 1 },
+    returnItems: [
+      {
+        id: "ret-HM60107-1",
+        itemName: "Nip 2in1 Soother Box Sterilizer and Hygienic Case (Blue)",
+        sku: "NIP-STZ-001",
+        type: "return",
+        qty: 1,
+        status: "pending",
+        source: "Shopify",
+        reason: "wrong",
+        adminNote: "Customer received wrong colour variant.",
+        createdAt: "2026-05-13T14:30:00Z",
+      },
+    ],
     city: "Muaither",
     coordinator: "Omar",
     driver: "irshad",
@@ -1274,6 +1632,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "2/2 Picked",
     packingStatus: "2/2 Packed",
     bags: 1,
+    lat: 25.2682,
+    lng: 51.4069,
   },
   {
     id: "HM60108",
@@ -1285,6 +1645,35 @@ export const MOCK_ORDERS: Order[] = [
     channel: "web",
     items: 3,
     status: "Exchange",
+    returns: { type: "Return", count: 2 },
+    returnItems: [
+      {
+        id: "ret-HM60108-1",
+        itemName: "Chicco Baby Carrier EasyFit (Grey)",
+        sku: "CHC-BC-EF-GR",
+        type: "replacement",
+        qty: 1,
+        status: "picked up",
+        source: "Web",
+        reason: "wrong",
+        adminNote: "Customer ordered blue, received grey. Exchange approved.",
+        createdAt: "2026-05-13T15:10:00Z",
+        collectedAt: "2026-05-14T11:00:00Z",
+        collectedBy: "farshad",
+      },
+      {
+        id: "ret-HM60108-2",
+        itemName: "Tommee Tippee Closer to Nature Bottle 150ml",
+        sku: "TT-CTN-150",
+        type: "return",
+        qty: 2,
+        status: "pending",
+        source: "Web",
+        reason: "damaged",
+        adminNote: "Bottles leaking from cap seal.",
+        createdAt: "2026-05-14T09:00:00Z",
+      },
+    ],
     city: "Old Airport",
     coordinator: "Rania",
     driver: "farshad",
@@ -1296,6 +1685,8 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "3/3 Picked",
     packingStatus: "3/3 Packed",
     bags: 1,
+    lat: 25.2494,
+    lng: 51.5492,
   },
   {
     id: "HM63850",
@@ -1318,80 +1709,188 @@ export const MOCK_ORDERS: Order[] = [
     pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
+    lat: 25.2854,
+    lng: 51.5310,
   },
   {
-    id: "HM63859",
-    customerId: "cust-63859",
-    tat: "148h 4m",
-    date: "May 20",
-    time: "09:23",
-    customer: { name: "haya abdulla", email: "um.fouz2022@gmail.com", phone: "50044141" },
-    channel: "web" as const,
+    id: "HM68300",
+    customerId: "cust-68300",
+    tat: "50h 00m",
+    date: "May 25",
+    time: "12:30",
+    customer: { name: "Fatima Al-Kuwari", email: "fatima.kuwari@example.com", phone: "55889900" },
+    channel: "shopify" as const,
     items: 1,
-    status: "Installation" as const,
-    city: "doha",
+    status: "Ready to Assign" as const,
+    city: "Doha",
     coordinator: "-",
-    driver: "mwd_nishad",
-    driverStatus: "Completed",
-    picker: "adhil",
-    packer: "mashood",
-    total: 1399,
-    shopify: "Fulfilled" as const,
+    driver: null,
+    driverStatus: null,
+    picker: "rahul",
+    packer: "packer1",
+    total: 3499,
+    shopify: "Pending" as const,
     pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
+    lat: 25.2854,
+    lng: 51.5310,
   },
   {
-    id: "HM63872",
-    customerId: "cust-63872",
-    tat: "145h 34m",
-    date: "May 20",
-    time: "11:54",
-    customer: { name: "Kamla Abdulla", email: "umessax44@icloud.com", phone: "55511532" },
+    id: "HM68229",
+    customerId: "cust-68229",
+    tat: "48h 15m",
+    date: "May 25",
+    time: "14:10",
+    customer: { name: "Sara Al Sulaiti", email: "sara.sulaiti@example.com", phone: "55112233" },
     channel: "web" as const,
-    items: 1,
-    status: "Installation" as const,
-    city: "الدوحة",
+    items: 4,
+    status: "Ready to Assign" as const,
+    city: "Doha",
     coordinator: "-",
-    driver: "mwd_naveed",
-    driverStatus: "Completed",
+    driver: null,
+    driverStatus: null,
+    picker: "rahul",
+    packer: "packer1",
+    total: 4696,
+    shopify: "Pending" as const,
+    pickingStatus: "4/4 Picked",
+    packingStatus: "4/4 Packed",
+    bags: 2,
+    lat: 25.2854,
+    lng: 51.5310,
+  },
+  {
+    id: "HM68258",
+    customerId: "cust-68258",
+    tat: "46h 10m",
+    date: "May 25",
+    time: "16:20",
+    customer: { name: "Mouza Al Derham", email: "mouza.derham@example.com", phone: "55667788" },
+    channel: "web" as const,
+    items: 2,
+    status: "Ready to Assign" as const,
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    driverStatus: null,
     picker: "noushad",
     packer: "packer1",
-    total: 499,
-    shopify: "Fulfilled" as const,
-    pickingStatus: "1/1 Picked",
-    packingStatus: "1/1 Packed",
+    total: 1448,
+    shopify: "Pending" as const,
+    pickingStatus: "2/2 Picked",
+    packingStatus: "2/2 Packed",
     bags: 1,
+    lat: 25.2854,
+    lng: 51.5310,
   },
   {
-    id: "HM63883",
-    customerId: "cust-63883",
-    tat: "144h 37m",
-    date: "May 20",
-    time: "12:51",
-    customer: { name: "عبدالرحمن النصر", email: "bomeq@hotmail.com", phone: "55829966" },
-    channel: "web" as const,
+    id: "HM68268",
+    customerId: "cust-68268",
+    tat: "44h 05m",
+    date: "May 26",
+    time: "09:30",
+    customer: { name: "aisha alnaemi", email: "aisha.naemi@example.com", phone: "55990011" },
+    channel: "shopify" as const,
     items: 1,
-    status: "Installation" as const,
-    city: "الأ وجة",
+    status: "Ready to Assign" as const,
+    city: "Doha",
     coordinator: "-",
-    driver: "mwd_naveed",
-    driverStatus: "Completed",
-    picker: "rahul",
+    driver: null,
+    driverStatus: null,
+    picker: "adhil",
     packer: "mashood",
-    total: 499,
-    shopify: "Fulfilled" as const,
+    total: 899,
+    shopify: "Pending" as const,
     pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
+    lat: 25.2854,
+    lng: 51.5310,
   },
-];
+  {
+    id: "HM64839",
+    customerId: "cust-64839",
+    tat: "432h 12m",
+    date: "May 15",
+    time: "11:15",
+    customer: { name: "test test", email: "test.test@example.com", phone: "77532802" },
+    channel: "web" as const,
+    items: 1,
+    status: "Driver Accepted" as const,
+    city: "Doha",
+    coordinator: "-",
+    driver: "driver1",
+    driverStatus: "Accepted",
+    picker: "rahul",
+    packer: "packer1",
+    total: 25,
+    shopify: "Pending" as const,
+    pickingStatus: "1/1 Picked",
+    packingStatus: "1/1 Packed",
+    bags: 1,
+    lat: 25.2854,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99001",
+    customerId: "cust-99001",
+    tat: "01h 05m",
+    date: "Jun 16",
+    time: "14:00",
+    customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
+    channel: "shopify" as const,
+    items: 2,
+    status: "New" as const,
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: null,
+    packer: null,
+    total: 480,
+    shopify: "Unfulfilled" as const,
+    pickingStatus: "0/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99003",
+    customerId: "cust-99003",
+    tat: "04h 15m",
+    date: "Jun 16",
+    time: "11:20",
+    customer: { name: "Mohammed Al-Sada", email: "m.sada@example.com", phone: "66554433" },
+    channel: "web" as const,
+    items: 2,
+    status: "Ready to Assign" as const,
+    city: "Lusail",
+    coordinator: "Omar",
+    driver: null,
+    picker: "rahul",
+    packer: "packer1",
+    total: 320,
+    shopify: "Pending" as const,
+    pickingStatus: "2/2 Picked",
+    packingStatus: "2/2 Packed",
+    bags: 1,
+    lat: 25.4182,
+    lng: 51.5218,
+  },
+]
+
+export function isUnpaidPayLaterOrder(order: { tags?: string[]; payment?: { balance: number } }): boolean {
+  const hasTag = order.tags?.some((t) => t.toUpperCase() === "PAYLATER") ?? false;
+  const isPending = (order.payment?.balance ?? 0) > 0;
+  return hasTag && isPending;
+}
 
 export const ORDER_STATS = [
   {
     label: "Picking",
     value: MOCK_ORDERS.filter(
-      (order) => order.status === "Picked",
+      (order) => order.status === "Picked" && !isUnpaidPayLaterOrder(order),
     ).length.toLocaleString(),
     icon: Package,
     tone: "violet" as const,
@@ -1399,7 +1898,7 @@ export const ORDER_STATS = [
   {
     label: "Packing",
     value: MOCK_ORDERS.filter(
-      (order) => order.status === "Ready to Assign",
+      (order) => order.status === "Ready to Assign" && !isUnpaidPayLaterOrder(order),
     ).length.toLocaleString(),
     icon: PackageCheck,
     tone: "primary" as const,
@@ -1407,14 +1906,14 @@ export const ORDER_STATS = [
   {
     label: "Delivered",
     value: MOCK_ORDERS.filter(
-      (order) => order.status === "Delivered",
+      (order) => order.status === "Delivered" && !isUnpaidPayLaterOrder(order),
     ).length.toLocaleString(),
     icon: Truck,
     tone: "primary" as const,
   },
   {
     label: "Revenue",
-    value: `QAR ${Math.round(MOCK_ORDERS.reduce((sum, order) => sum + order.total, 0) / 1000)}K`,
+    value: `QAR ${Math.round(MOCK_ORDERS.filter(o => !isUnpaidPayLaterOrder(o)).reduce((sum, order) => sum + order.total, 0) / 1000)}K`,
     icon: Wallet,
     tone: "success" as const,
   },
@@ -1436,6 +1935,7 @@ export const statusIcon: Record<OrderStatus, LucideIcon> = {
   Replacement: ArrowLeftRight,
   Exchange: RotateCcw,
   Installation: Clock3,
+  PayLater: Clock3,
 };
 
 /** Tailwind classes for the status indicator dot */
@@ -1470,6 +1970,8 @@ export function statusDotClass(status: OrderStatus): string {
       return "bg-teal-500";
     case "Installation":
       return "bg-emerald-500";
+    case "PayLater":
+      return "bg-purple-500";
     default:
       return "bg-muted-foreground";
   }
@@ -1493,6 +1995,13 @@ export function matchesSearch(order: Order, query: string): boolean {
 }
 
 export function matchesLegacyTab(order: Order, tab: LegacyTabId): boolean {
+  const isPayLater = isUnpaidPayLaterOrder(order);
+  if (isPayLater) {
+    return tab === "PayLater";
+  } else {
+    if (tab === "PayLater") return false;
+  }
+
   if (tab === "All") return true;
   if (tab === "Unfulfilled") return order.status !== "Delivered";
   if (tab === "Installation") return order.status === "Installation";
@@ -1506,6 +2015,7 @@ export function matchesLegacyTab(order: Order, tab: LegacyTabId): boolean {
   }
   if (tab === "Replacement") return order.status === "Replacement";
   if (tab === "Exchange") return order.status === "Exchange";
+  if (tab === "In Delivery") return order.status === "Driver Accepted" || order.status === "Started";
   return order.status === tab;
 }
 
@@ -1566,6 +2076,62 @@ export function tatColorClass(tat: string): string {
   if (hours <= 12) return "text-amber-600 dark:text-amber-400";
   if (hours <= 24) return "text-orange-600 dark:text-orange-400";
   return "text-red-600 dark:text-red-400";
+}
+
+export type OrderSlaStatus = "on_track" | "at_risk" | "breached";
+
+/** Calculate order elapsed minutes based on TAT string */
+export function getOrderElapsedMinutes(order: Order): number {
+  if (order.tat) {
+    return Math.round(parseTatHours(order.tat) * 60);
+  }
+  return 0;
+}
+
+/** Compute 4-hour SLA status and remaining time for an order */
+export function getOrderSlaStatus(order: Order): {
+  status: OrderSlaStatus;
+  elapsedMinutes: number;
+  remainingMinutes: number;
+  label: string;
+} {
+  if (order.status === "Delivered") {
+    return { status: "on_track", elapsedMinutes: 0, remainingMinutes: 240, label: "SLA Met" };
+  }
+  const elapsedMinutes = getOrderElapsedMinutes(order);
+  const targetMinutes = 240; // 4 hours continuous SLA
+  const remainingMinutes = targetMinutes - elapsedMinutes;
+
+  if (elapsedMinutes > targetMinutes || order.status === "Delivery Failed") {
+    return { status: "breached", elapsedMinutes, remainingMinutes, label: "SLA Breached" };
+  }
+  if (remainingMinutes <= 60) {
+    return { status: "at_risk", elapsedMinutes, remainingMinutes, label: "At Risk" };
+  }
+  return { status: "on_track", elapsedMinutes, remainingMinutes, label: "On Track" };
+}
+
+/** Calculate unified item count across Order lists and Order Details */
+export function getOrderItemsCount(order: { itemsList?: OrderItemType[]; items?: number }): number {
+  if (order.itemsList && order.itemsList.length > 0) {
+    return order.itemsList.reduce((sum, item) => sum + item.qty, 0);
+  }
+  return order.items || 0;
+}
+
+export function getDeliveryDate(order: { date: string; deliveryDate?: string }): string {
+  if (order.deliveryDate) return order.deliveryDate;
+  try {
+    const currentYear = new Date().getFullYear();
+    const dateObj = new Date(`${order.date}, ${currentYear}`);
+    if (!isNaN(dateObj.getTime())) {
+      dateObj.setDate(dateObj.getDate() + 1);
+      return dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+  } catch (e) {
+    // ignore
+  }
+  return order.date;
 }
 
 /** All mock orders for this customer (newest-first by order id). */

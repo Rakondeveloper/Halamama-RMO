@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WarehousesRouteImport } from './routes/warehouses'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScheduledRouteImport } from './routes/scheduled'
 import { Route as ReturnsRouteImport } from './routes/returns'
@@ -17,18 +18,26 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as PickingRouteImport } from './routes/picking'
 import { Route as PackingRouteImport } from './routes/packing'
+import { Route as MisBenchmarksRouteImport } from './routes/mis-benchmarks'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LocationsRouteImport } from './routes/locations'
 import { Route as FlagsRouteImport } from './routes/flags'
 import { Route as DriverRouteImport } from './routes/driver'
 import { Route as DeliveredRouteImport } from './routes/delivered'
+import { Route as CustomerCareRouteImport } from './routes/customer-care'
+import { Route as CalendarsRouteImport } from './routes/calendars'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OrdersIndexRouteImport } from './routes/orders.index'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders_.$orderId'
-import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 
 const WarehousesRoute = WarehousesRouteImport.update({
   id: '/warehouses',
   path: '/warehouses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -66,9 +75,19 @@ const PackingRoute = PackingRouteImport.update({
   path: '/packing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MisBenchmarksRoute = MisBenchmarksRouteImport.update({
+  id: '/mis-benchmarks',
+  path: '/mis-benchmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LocationsRoute = LocationsRouteImport.update({
+  id: '/locations',
+  path: '/locations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlagsRoute = FlagsRouteImport.update({
@@ -86,6 +105,16 @@ const DeliveredRoute = DeliveredRouteImport.update({
   path: '/delivered',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomerCareRoute = CustomerCareRouteImport.update({
+  id: '/customer-care',
+  path: '/customer-care',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarsRoute = CalendarsRouteImport.update({
+  id: '/calendars',
+  path: '/calendars',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -101,18 +130,17 @@ const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
-  id: '/customers/$customerId',
-  path: '/customers/$customerId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendars': typeof CalendarsRoute
+  '/customer-care': typeof CustomerCareRoute
   '/delivered': typeof DeliveredRoute
   '/driver': typeof DriverRoute
   '/flags': typeof FlagsRoute
+  '/locations': typeof LocationsRoute
   '/login': typeof LoginRoute
+  '/mis-benchmarks': typeof MisBenchmarksRoute
   '/packing': typeof PackingRoute
   '/picking': typeof PickingRoute
   '/ready': typeof ReadyRoute
@@ -120,17 +148,21 @@ export interface FileRoutesByFullPath {
   '/returns': typeof ReturnsRoute
   '/scheduled': typeof ScheduledRoute
   '/settings': typeof SettingsRoute
+  '/users': typeof UsersRoute
   '/warehouses': typeof WarehousesRoute
-  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/orders/': typeof OrdersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendars': typeof CalendarsRoute
+  '/customer-care': typeof CustomerCareRoute
   '/delivered': typeof DeliveredRoute
   '/driver': typeof DriverRoute
   '/flags': typeof FlagsRoute
+  '/locations': typeof LocationsRoute
   '/login': typeof LoginRoute
+  '/mis-benchmarks': typeof MisBenchmarksRoute
   '/packing': typeof PackingRoute
   '/picking': typeof PickingRoute
   '/ready': typeof ReadyRoute
@@ -138,18 +170,22 @@ export interface FileRoutesByTo {
   '/returns': typeof ReturnsRoute
   '/scheduled': typeof ScheduledRoute
   '/settings': typeof SettingsRoute
+  '/users': typeof UsersRoute
   '/warehouses': typeof WarehousesRoute
-  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/orders': typeof OrdersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendars': typeof CalendarsRoute
+  '/customer-care': typeof CustomerCareRoute
   '/delivered': typeof DeliveredRoute
   '/driver': typeof DriverRoute
   '/flags': typeof FlagsRoute
+  '/locations': typeof LocationsRoute
   '/login': typeof LoginRoute
+  '/mis-benchmarks': typeof MisBenchmarksRoute
   '/packing': typeof PackingRoute
   '/picking': typeof PickingRoute
   '/ready': typeof ReadyRoute
@@ -157,8 +193,8 @@ export interface FileRoutesById {
   '/returns': typeof ReturnsRoute
   '/scheduled': typeof ScheduledRoute
   '/settings': typeof SettingsRoute
+  '/users': typeof UsersRoute
   '/warehouses': typeof WarehousesRoute
-  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/orders_/$orderId': typeof OrdersOrderIdRoute
   '/orders/': typeof OrdersIndexRoute
 }
@@ -166,10 +202,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendars'
+    | '/customer-care'
     | '/delivered'
     | '/driver'
     | '/flags'
+    | '/locations'
     | '/login'
+    | '/mis-benchmarks'
     | '/packing'
     | '/picking'
     | '/ready'
@@ -177,17 +217,21 @@ export interface FileRouteTypes {
     | '/returns'
     | '/scheduled'
     | '/settings'
+    | '/users'
     | '/warehouses'
-    | '/customers/$customerId'
     | '/orders/$orderId'
     | '/orders/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calendars'
+    | '/customer-care'
     | '/delivered'
     | '/driver'
     | '/flags'
+    | '/locations'
     | '/login'
+    | '/mis-benchmarks'
     | '/packing'
     | '/picking'
     | '/ready'
@@ -195,17 +239,21 @@ export interface FileRouteTypes {
     | '/returns'
     | '/scheduled'
     | '/settings'
+    | '/users'
     | '/warehouses'
-    | '/customers/$customerId'
     | '/orders/$orderId'
     | '/orders'
   id:
     | '__root__'
     | '/'
+    | '/calendars'
+    | '/customer-care'
     | '/delivered'
     | '/driver'
     | '/flags'
+    | '/locations'
     | '/login'
+    | '/mis-benchmarks'
     | '/packing'
     | '/picking'
     | '/ready'
@@ -213,18 +261,22 @@ export interface FileRouteTypes {
     | '/returns'
     | '/scheduled'
     | '/settings'
+    | '/users'
     | '/warehouses'
-    | '/customers/$customerId'
     | '/orders_/$orderId'
     | '/orders/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarsRoute: typeof CalendarsRoute
+  CustomerCareRoute: typeof CustomerCareRoute
   DeliveredRoute: typeof DeliveredRoute
   DriverRoute: typeof DriverRoute
   FlagsRoute: typeof FlagsRoute
+  LocationsRoute: typeof LocationsRoute
   LoginRoute: typeof LoginRoute
+  MisBenchmarksRoute: typeof MisBenchmarksRoute
   PackingRoute: typeof PackingRoute
   PickingRoute: typeof PickingRoute
   ReadyRoute: typeof ReadyRoute
@@ -232,8 +284,8 @@ export interface RootRouteChildren {
   ReturnsRoute: typeof ReturnsRoute
   ScheduledRoute: typeof ScheduledRoute
   SettingsRoute: typeof SettingsRoute
+  UsersRoute: typeof UsersRoute
   WarehousesRoute: typeof WarehousesRoute
-  CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
   OrdersIndexRoute: typeof OrdersIndexRoute
 }
@@ -245,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/warehouses'
       fullPath: '/warehouses'
       preLoaderRoute: typeof WarehousesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -296,11 +355,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PackingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mis-benchmarks': {
+      id: '/mis-benchmarks'
+      path: '/mis-benchmarks'
+      fullPath: '/mis-benchmarks'
+      preLoaderRoute: typeof MisBenchmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/locations': {
+      id: '/locations'
+      path: '/locations'
+      fullPath: '/locations'
+      preLoaderRoute: typeof LocationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flags': {
@@ -324,6 +397,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeliveredRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customer-care': {
+      id: '/customer-care'
+      path: '/customer-care'
+      fullPath: '/customer-care'
+      preLoaderRoute: typeof CustomerCareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendars': {
+      id: '/calendars'
+      path: '/calendars'
+      fullPath: '/calendars'
+      preLoaderRoute: typeof CalendarsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -345,22 +432,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/customers/$customerId': {
-      id: '/customers/$customerId'
-      path: '/customers/$customerId'
-      fullPath: '/customers/$customerId'
-      preLoaderRoute: typeof CustomersCustomerIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarsRoute: CalendarsRoute,
+  CustomerCareRoute: CustomerCareRoute,
   DeliveredRoute: DeliveredRoute,
   DriverRoute: DriverRoute,
   FlagsRoute: FlagsRoute,
+  LocationsRoute: LocationsRoute,
   LoginRoute: LoginRoute,
+  MisBenchmarksRoute: MisBenchmarksRoute,
   PackingRoute: PackingRoute,
   PickingRoute: PickingRoute,
   ReadyRoute: ReadyRoute,
@@ -368,8 +452,8 @@ const rootRouteChildren: RootRouteChildren = {
   ReturnsRoute: ReturnsRoute,
   ScheduledRoute: ScheduledRoute,
   SettingsRoute: SettingsRoute,
+  UsersRoute: UsersRoute,
   WarehousesRoute: WarehousesRoute,
-  CustomersCustomerIdRoute: CustomersCustomerIdRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
   OrdersIndexRoute: OrdersIndexRoute,
 }

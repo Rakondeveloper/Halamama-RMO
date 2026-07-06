@@ -1,11 +1,11 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Order } from "@/lib/orders";
-import { tatColorClass } from "@/lib/orders";
+import { tatColorClass, getOrderItemsCount, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Package, Truck, User, Eye } from "lucide-react";
 import { CrewTag } from "./CrewTag";
+import { DriverStatusBadge } from "./DriverStatusBadge";
 
 function ShopifyBadge({ status }: { status: Order["shopify"] }) {
   return (
@@ -34,11 +34,27 @@ function ShopifyBadge({ status }: { status: Order["shopify"] }) {
   );
 }
 
-function ReturnBadge({ count }: { count: number }) {
+function ReturnBadge({ order }: { order: Order }) {
+  const items = order.returnItems ?? [];
+  const count = items.length || order.returns?.count || 0;
+  if (count === 0) return null;
+
+  // If all items are collected/completed, show green badge
+  if (items.length > 0 && items.every((r) => r.status === "picked up" || r.status === "completed")) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
+        <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Return Collected
+      </span>
+    );
+  }
+
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[11px] font-semibold text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/10 dark:text-orange-400">
       <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden>
-        <path d="M2 6h8M6 2v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6 2v4M6 8v1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
       Return ({count})
     </span>
@@ -46,28 +62,24 @@ function ReturnBadge({ count }: { count: number }) {
 }
 
 function DriverCell({ order }: { order: Order }) {
-  if (!order.driver) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!order.driver) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-semibold text-gray-600 border border-gray-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20">
+          Unassigned
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col items-start gap-1">
       <CrewTag
         name={order.driver}
         Icon={Truck}
         color="bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
       />
-      {order.driverStatus && (
-        <span
-          className={cn(
-            "text-[10px] font-medium",
-            order.driverStatus === "Accepted" && "text-emerald-600 dark:text-emerald-400",
-            order.driverStatus === "Completed" && "text-emerald-600 dark:text-emerald-400",
-            order.driverStatus === "Delivery failed" && "text-red-600 dark:text-red-400",
-            !["Accepted", "Completed", "Delivery failed"].includes(order.driverStatus) &&
-              "text-muted-foreground",
-          )}
-        >
-          ● {order.driverStatus}
-        </span>
-      )}
+      <DriverStatusBadge status={order.driverStatus} />
     </div>
   );
 }
@@ -102,6 +114,7 @@ export function OrderTableRow({
   onToggleExpand,
   onViewOrder,
   dynamicCol,
+  activeTab,
 }: {
   order: Order;
   selected: boolean;
@@ -110,6 +123,7 @@ export function OrderTableRow({
   onToggleExpand: () => void;
   onViewOrder: (order: Order) => void;
   dynamicCol: "driver" | "picker" | "packer" | null;
+  activeTab?: string;
 }) {
   const handleRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
     const el = e.target as HTMLElement;
@@ -127,6 +141,11 @@ export function OrderTableRow({
   };
 
   const tatClass = tatColorClass(order.tat);
+  const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
+  const isPacking = activeTab === "Packing";
+  const colSpanCount = isPacking
+    ? 10
+    : 13 + (dynamicCol ? 1 : 0) + (isPickingOrPicked ? -2 : 0) + (activeTab === "Ready to Assign" ? -1 : 0);
 
   return (
     <>
@@ -179,7 +198,9 @@ export function OrderTableRow({
             <div className="truncate text-sm font-semibold text-foreground">
               {order.customer.name}
             </div>
-            <div className="truncate text-xs text-muted-foreground">{order.customer.email}</div>
+            {!isPacking && (
+              <div className="truncate text-xs text-muted-foreground">{order.customer.email}</div>
+            )}
             <div className="truncate text-xs text-muted-foreground tabular-nums">
               {order.customer.phone}
             </div>
@@ -187,33 +208,141 @@ export function OrderTableRow({
         </td>
 
         {/* Channel */}
-        <td className="py-3 pr-3 align-middle">
-          <span className="text-xs font-medium text-muted-foreground">{order.channel}</span>
-        </td>
+        {!isPickingOrPicked && !isPacking && (
+          <td className="py-3 pr-3 align-middle">
+            <span className="text-xs font-medium text-muted-foreground">{order.channel}</span>
+          </td>
+        )}
 
         {/* Items */}
         <td className="py-3 pr-3 align-middle">
-          <span className="text-xs font-medium">{order.items} items</span>
+          <span className="text-xs font-medium">{getOrderItemsCount(order)} items</span>
         </td>
 
-        {/* Returns & Replacements */}
-        <td className="py-3 pr-3 align-middle">
-          {order.returns ? (
-            <ReturnBadge count={order.returns.count} />
-          ) : (
-            <span className="text-xs text-muted-foreground"></span>
-          )}
-        </td>
+        {/* Returns */}
+        {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && (
+          <td className="py-3 pr-3 align-middle">
+            {(order.returns || (order.returnItems && order.returnItems.length > 0)) ? (
+              <ReturnBadge order={order} />
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </td>
+        )}
+
+        {/* Picking Status & Assigned Picker */}
+        {(activeTab === "Picking" || activeTab === "Picked") && (
+          <>
+            <td className="py-3 pr-3 align-middle">
+              {(() => {
+                const pickingStat = order.pickingStatus || "0/0 Picked";
+                const parts = pickingStat.split(" ")[0].split("/");
+                const picked = parts[0];
+                const total = parts[1];
+                const isFullyPicked = picked && total && picked === total && total !== "0";
+                return (
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    isFullyPicked
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                  )}>
+                    {pickingStat}
+                  </span>
+                );
+              })()}
+            </td>
+            <td className="py-3 pr-3 align-middle">
+              {order.picker ? (
+                <CrewTag
+                  name={order.picker}
+                  Icon={User}
+                  color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </td>
+          </>
+        )}
+            {/* Packing Status, Assigned Packer & Bags */}
+        {isPacking && (
+          <>
+            <td className="py-3 pr-3 align-middle">
+              {(() => {
+                let packingStat = order.packingStatus;
+                if (!packingStat) {
+                  const total = getOrderItemsCount(order);
+                  if (order.itemsList && order.itemsList.length > 0) {
+                    const packed = order.itemsList.filter(item => item.status === "Prepared").length;
+                    packingStat = `${packed}/${total} Packing`;
+                  } else {
+                    const fullyPackedStatuses = ["Ready to Assign", "Driver Accepted", "Started", "Delivered"];
+                    if (fullyPackedStatuses.includes(order.status)) {
+                      packingStat = `${total}/${total} Packing`;
+                    } else {
+                      packingStat = `0/${total} Packing`;
+                    }
+                  }
+                } else {
+                  packingStat = packingStat.replace("Packed", "Packing");
+                }
+
+                const parts = packingStat.split(" ")[0].split("/");
+                const packed = parts[0];
+                const totalVal = parts[1];
+                const isFullyPacked = packed && totalVal && packed === totalVal && totalVal !== "0";
+                return (
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    isFullyPacked
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                  )}>
+                    {packingStat}
+                  </span>
+                );
+              })()}
+            </td>
+            <td className="py-3 pr-3 align-middle">
+              {order.packer ? (
+                <CrewTag
+                  name={order.packer}
+                  Icon={Package}
+                  color="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </td>
+            <td className="py-3 pr-3 align-middle">
+              {order.bags && order.bags > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                  <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {order.bags} {order.bags === 1 ? "Bag" : "Bags"}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
+            </td>
+          </>
+        )}
+
+
 
         {/* City */}
-        <td className="py-3 pr-3 align-middle">
-          <span className="text-xs font-medium">{order.city}</span>
-        </td>
+        {!isPacking && !isPickingOrPicked && (
+          <td className="py-3 pr-3 align-middle">
+            <span className="text-xs font-medium">{order.city}</span>
+          </td>
+        )}
 
         {/* Coordinator */}
-        <td className="py-3 pr-3 align-middle">
-          <span className="text-xs text-muted-foreground">{order.coordinator}</span>
-        </td>
+        {!isPickingOrPicked && !isPacking && (
+          <td className="py-3 pr-3 align-middle">
+            <span className="text-xs text-muted-foreground">{order.coordinator}</span>
+          </td>
+        )}
 
         {/* Dynamic Column: Driver / Picker / Packer */}
         {dynamicCol === "driver" && (
@@ -233,9 +362,11 @@ export function OrderTableRow({
         )}
 
         {/* Total */}
-        <td className="whitespace-nowrap py-3 pr-3 align-middle">
-          <span className="text-sm font-semibold tabular-nums">QAR {order.total.toFixed(2)}</span>
-        </td>
+        {!isPacking && (
+          <td className="whitespace-nowrap py-3 pr-3 align-middle">
+            <span className="text-sm font-semibold tabular-nums">QAR {order.total.toFixed(2)}</span>
+          </td>
+        )}
 
         {/* Actions */}
         <td className="py-3 pr-3 align-middle">
@@ -258,15 +389,17 @@ export function OrderTableRow({
         </td>
 
         {/* Shopify Status */}
-        <td className="py-3 pr-3 align-middle">
-          <ShopifyBadge status={order.status === "Delivered" ? "Fulfilled" : "Unfulfilled"} />
-        </td>
+        {!isPacking && (
+          <td className="py-3 pr-3 align-middle">
+            <ShopifyBadge status={order.status === "Delivered" ? "Fulfilled" : "Unfulfilled"} />
+          </td>
+        )}
       </tr>
 
       {/* Expanded detail row */}
       {expanded && (
         <tr className="border-b border-border/70 bg-muted/20">
-          <td colSpan={dynamicCol ? 15 : 14} className="px-4 py-4">
+          <td colSpan={colSpanCount} className="px-4 py-4">
             <div className="grid gap-4 text-sm md:grid-cols-3">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

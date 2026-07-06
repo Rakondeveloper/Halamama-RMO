@@ -34,7 +34,7 @@ function OrdersPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
 
-        <main className="mx-auto w-full max-w-[1780px] flex-1 space-y-4 p-4 md:space-y-5 md:p-6">
+        <main className="mx-auto w-full max-w-[1780px] flex-1 space-y-3 p-3 sm:space-y-4 sm:p-4 md:space-y-5 md:p-6">
           <OrdersHeader stats={ORDER_STATS} />
           <OrderList initialTab={tab as any} />
         </main>

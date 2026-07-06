@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { OrderTable } from "@/components/orders/OrderTable";
-import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { type Order } from "@/lib/orders";
+import { useOrders } from "@/hooks/useOrders";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/delivered")({
@@ -19,6 +20,7 @@ function DeliveredPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { data: allOrders = [] } = useOrders();
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
@@ -29,7 +31,7 @@ function DeliveredPage() {
     navigate({ to: "/orders/$orderId", params: { orderId: order.id } });
   };
 
-  const orders = MOCK_ORDERS.filter(o => o.status === "Delivered");
+  const orders = allOrders.filter(o => o.status === "Delivered");
 
   const onSelect = (id: string, selected: boolean) => {
     setSelectedIds((prev) => {

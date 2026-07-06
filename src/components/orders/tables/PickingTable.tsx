@@ -1,6 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Order } from "@/lib/orders";
-import { tatColorClass } from "@/lib/orders";
+import { getOrderItemsCount, tatColorClass, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -84,7 +83,7 @@ export function PickingTable({
                   </div>
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  <span className="text-xs font-medium">{order.items}</span>
+                  <span className="text-xs font-medium">{getOrderItemsCount(order)}</span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-400">

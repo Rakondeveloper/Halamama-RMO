@@ -1,8 +1,10 @@
-import { Edit2, Check, X, Mail, Navigation, Phone, UserRound } from "lucide-react";
+import { Edit2, Check, X, Mail, Navigation, Phone, UserRound, Tag } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { EnrichedOrder } from "@/lib/orders";
+import { cn, copyToClipboard } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface CustomerSidebarProps {
   order: EnrichedOrder;
@@ -15,6 +17,7 @@ export function CustomerSidebar({ order, onNotesUpdate }: CustomerSidebarProps) 
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(order.notes ?? "");
+  const [copied, setCopied] = useState(false);
 
   const handleEdit = useCallback(() => {
     setEditedNotes(order.notes ?? "");
@@ -24,6 +27,7 @@ export function CustomerSidebar({ order, onNotesUpdate }: CustomerSidebarProps) 
   const handleSave = useCallback(() => {
     onNotesUpdate?.(editedNotes.trim());
     setIsEditing(false);
+    toast.success("Notes saved successfully.");
   }, [editedNotes, onNotesUpdate]);
 
   const handleCancel = useCallback(() => {
@@ -86,6 +90,63 @@ export function CustomerSidebar({ order, onNotesUpdate }: CustomerSidebarProps) 
               No notes from customer
             </p>
           )}
+
+          {(() => {
+            const isPayLater = order.tags?.some((t) => t.toUpperCase() === "PAYLATER") ?? false;
+            if (!isPayLater) return null;
+
+            const extractUrl = (text?: string) => {
+              if (!text) return null;
+              const match = text.match(/https?:\/\/[^\s]+/);
+              return match ? match[0] : null;
+            };
+
+            const paymentLink = extractUrl(order.notes) || `https://halamama.myshopify.com/checkouts/pay-later/${order.id.toLowerCase()}`;
+
+            return (
+              <div className="mt-4 rounded-lg border border-purple-100 bg-purple-50/50 p-3.5 dark:border-purple-900/30 dark:bg-purple-950/10">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-400">
+                  PayLater Payment Link
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground leading-normal">
+                  Payment is pending. Link sent to customer:
+                </p>
+                <div className="mt-2.5 flex items-center justify-between gap-2 rounded border border-purple-200 bg-background px-2.5 py-1.5 dark:border-purple-900">
+                  <a
+                    href={paymentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-xs text-purple-700 hover:underline dark:text-purple-400 font-mono"
+                  >
+                    {paymentLink}
+                  </a>
+                  <button
+                    onClick={() => {
+                      copyToClipboard(paymentLink).then((success) => {
+                        if (success) {
+                          toast.success("Payment link copied successfully.");
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        } else {
+                          toast.error("Failed to copy payment link.");
+                        }
+                      });
+                    }}
+                    type="button"
+                    className={cn(
+                      "shrink-0 text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 cursor-pointer",
+                      copied
+                        ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                        : "text-purple-700 hover:text-purple-800 dark:text-purple-400"
+                    )}
+                  >
+                    {copied ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="mt-5 rounded-lg border border-border bg-muted/20 p-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Additional details
@@ -97,6 +158,41 @@ export function CustomerSidebar({ order, onNotesUpdate }: CustomerSidebarProps) 
         </div>
       </section>
 
+      {/* Tags Section */}
+      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-5 py-3">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Tags</h3>
+        </div>
+        <div className="p-5 flex flex-wrap gap-2">
+          {order.tags && order.tags.length > 0 ? (
+            order.tags.map((tag) => {
+              const isPayLaterTag = tag.toUpperCase() === "PAYLATER";
+              const isSentTag = tag.toUpperCase() === "PAYMENTLINKSENT";
+              return (
+                <span
+                  key={tag}
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border",
+                    isPayLaterTag
+                      ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-900"
+                      : isSentTag
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900"
+                      : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                  )}
+                >
+                  {tag}
+                </span>
+              );
+            })
+          ) : (
+            <p className="text-sm text-muted-foreground italic opacity-70">
+              No tags on this order
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-5 py-3">
           <UserRound className="h-4 w-4 text-muted-foreground" />
@@ -104,12 +200,9 @@ export function CustomerSidebar({ order, onNotesUpdate }: CustomerSidebarProps) 
         </div>
         <div className="space-y-5 p-5">
           <div>
-            <a
-              href={`/customers/${order.customerId}`}
-              className="text-base font-semibold text-primary hover:underline"
-            >
+            <div className="text-base font-semibold text-primary">
               {order.customer.name}
-            </a>
+            </div>
           </div>
 
           <div>

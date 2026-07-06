@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import { findManagedUser } from '../api/sync'
 
 const AuthContext = createContext(null)
 
@@ -19,10 +20,24 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     /* ─── API HOOK: Replace with POST /api/login { email, password } ─── */
     await new Promise(r => setTimeout(r, 800)) // simulate latency
+    
+    // 1. Check admin-managed users first (created via User Management page)
+    const managedUser = findManagedUser(email)
+    if (managedUser && managedUser.password === password) {
+      const fakeToken = 'tok_' + Math.random().toString(36).slice(2)
+      const profile = { id: managedUser.id, name: managedUser.name, email: managedUser.email, role: managedUser.role, locationId: managedUser.locationId }
+      localStorage.setItem('rmo_user', JSON.stringify(profile))
+      localStorage.setItem('rmo_token', fakeToken)
+      setUser(profile)
+      setToken(fakeToken)
+      return profile
+    }
+    
+    // 2. Fall back to hardcoded demo users
     const u = MOCK_USERS[email.toLowerCase()]
     if (!u || u.password !== password) throw new Error('Invalid credentials')
     const fakeToken = 'tok_' + Math.random().toString(36).slice(2)
-    const profile = { id: u.id, name: u.name, email: u.email, role: u.role }
+    const profile = { id: u.id, name: u.name, email: u.email, role: u.role, locationId: u.locationId }
     localStorage.setItem('rmo_user', JSON.stringify(profile))
     localStorage.setItem('rmo_token', fakeToken)
     setUser(profile)

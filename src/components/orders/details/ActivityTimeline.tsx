@@ -17,6 +17,7 @@ import {
   List,
   Webhook,
   FileText,
+  XCircle,
 } from "lucide-react";
 import type { EnrichedOrder, OrderTimelineEvent } from "@/lib/orders";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,21 @@ type EventType = OrderTimelineEvent["type"];
 
 export function ActivityTimeline({ order }: { order: EnrichedOrder }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const latestEvent = order.timeline.length > 0 ? order.timeline[order.timeline.length - 1] : null;
+  const mainTimeline = order.timeline.filter(
+    (event) =>
+      ![
+        "recalculated",
+        "updated",
+        "added",
+        "line_item_updated",
+        "auto_fulfilled",
+        "auto_marked_paid",
+        "order_created",
+        "item_picked",
+        "item_packed",
+      ].includes(event.type)
+  );
+  const latestEvent = mainTimeline.length > 0 ? mainTimeline[mainTimeline.length - 1] : null;
 
   return (
     <>
@@ -100,7 +115,10 @@ function colourForEvent(type: EventType): string {
     case "placed":
       return "bg-emerald-600";
     case "delivery_failed":
+    case "cancelled":
       return "bg-red-600";
+    case "bypassed":
+      return "bg-amber-600";
     default:
       return "bg-muted-foreground";
   }
@@ -147,6 +165,10 @@ function iconForEvent(type: EventType) {
       return PackageCheck;
     case "auto_marked_paid":
       return CreditCard;
+    case "cancelled":
+      return XCircle;
+    case "bypassed":
+      return ShieldCheck;
     default:
       return Clock;
   }

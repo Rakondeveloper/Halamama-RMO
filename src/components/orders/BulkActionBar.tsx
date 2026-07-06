@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { MapPin, Truck, Printer, Download, X } from "lucide-react";
+import { MapPin, Truck, Printer, Gift, Download, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BulkActionBar({
@@ -8,6 +8,7 @@ export function BulkActionBar({
   onAssignZone,
   onAssignDriver,
   onPrintInvoices,
+  onPrintGiftInvoices,
   onViewExport,
 }: {
   count: number;
@@ -15,6 +16,7 @@ export function BulkActionBar({
   onAssignZone?: () => void;
   onAssignDriver?: () => void;
   onPrintInvoices?: () => void;
+  onPrintGiftInvoices?: () => void;
   onViewExport?: () => void;
 }) {
   if (count === 0) return null;
@@ -65,6 +67,17 @@ export function BulkActionBar({
         >
           <Printer className="h-3.5 w-3.5" />
           Print Invoices
+        </Button>
+
+        {/* Print Gift Invoices — Pink */}
+        <Button
+          size="sm"
+          type="button"
+          onClick={onPrintGiftInvoices}
+          className="h-9 gap-2 rounded-lg bg-pink-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-pink-700 dark:bg-pink-500 dark:hover:bg-pink-600"
+        >
+          <Gift className="h-3.5 w-3.5" />
+          Print Gift Invoices
         </Button>
 
         {/* View & Export — Orange */}
