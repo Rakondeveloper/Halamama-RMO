@@ -333,6 +333,24 @@ let mockOrders = [
     date: '6/16/2026 • 11:20 AM',
     lat: 25.4182,
     lng: 51.5218
+  },
+  {
+    id: 'HM99005',
+    customer: 'Khalid Al-Nuaimi',
+    address: 'Doha',
+    phone: '55776688',
+    total: 3197,
+    status: 'new',
+    items: [
+      { id: "test-item-1", sku: "9060", name: "Happy Hop 6-in-1 Play Center", qty: 1, picked: false, fc: "F01" },
+      { id: "test-item-2", sku: "561KC", name: "Bestway Apx 365 Round Pool Set (12' x 30\")", qty: 1, picked: false, fc: "MWO" },
+      { id: "test-item-3", sku: "820304", name: "Smoby Green XL Slide", qty: 1, picked: false, fc: "VL_HMA", locationId: "loc-001" }
+    ],
+    bags: 0,
+    assignedTo: null,
+    date: '6/27/2026 • 10:55 AM',
+    lat: 25.2638,
+    lng: 51.4822
   }
 ];
 

@@ -218,6 +218,8 @@ export interface OrderItemType {
   scheduledAt?: string;
   /** Driver/installer assigned for the installation */
   installationDriver?: string | null;
+  /** Location ID for vendor location items */
+  locationId?: string;
 }
 
 export type ReturnStatus = "pending" | "picked up" | "completed";

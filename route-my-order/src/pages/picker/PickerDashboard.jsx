@@ -207,9 +207,11 @@ export function PickerDashboard() {
   // 1. Date Filter applied first to all orders
   const dateFilteredOrders = orders.filter(o => matchesDays(o.date))
 
-  // 2. Tab Filter applied to date-filtered orders
-  const newOrdersFiltered = dateFilteredOrders.filter(o => o.status === 'new')
-  const myOrdersFiltered = dateFilteredOrders.filter(o => o.status === 'picking' && o.assignedTo === user.email)
+  // 2. Tab Filter applied:
+  // For New and Mine, we use unfiltered orders so old unfulfilled orders are not hidden.
+  // For Completed and All, we use date-filtered orders.
+  const newOrdersFiltered = newOrders
+  const myOrdersFiltered = myOrders
   const completedOrdersFiltered = dateFilteredOrders.filter(o => 
     (o.status === 'packed' || o.status === 'assigning' || o.status === 'assigned' || o.status === 'delivered') && 
     o.pickedBy === user.email

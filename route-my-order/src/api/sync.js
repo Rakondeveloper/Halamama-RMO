@@ -336,6 +336,52 @@ export function seedSharedOrdersForRmo() {
             locationId: "loc-1"
           }
         ]
+      },
+      {
+        id: "HM99005",
+        customerId: "cust-99005",
+        date: "Jun 27",
+        time: "10:55",
+        customer: { name: "Khalid Al-Nuaimi", email: "khalid.nuaimi@example.com", phone: "55776688" },
+        items: 3,
+        status: "New",
+        city: "Doha",
+        total: 3197,
+        itemsList: [
+          {
+            id: "test-item-1",
+            name: "Happy Hop 6-in-1 Play Center",
+            sku: "9060",
+            barcode: "90600000001",
+            qty: 1,
+            price: 1999.0,
+            fc: "F01",
+            status: "Prepared",
+            itemType: "FC"
+          },
+          {
+            id: "test-item-2",
+            name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+            sku: "561KC",
+            barcode: "56100000002",
+            qty: 1,
+            price: 799.0,
+            fc: "MWO",
+            status: "Prepared",
+            itemType: "MWH"
+          },
+          {
+            id: "test-item-3",
+            name: "Smoby Green XL Slide",
+            sku: "820304",
+            barcode: "82030400003",
+            qty: 1,
+            price: 399.0,
+            fc: "VS",
+            status: "Prepared",
+            itemType: "VL_SUPPLIER"
+          }
+        ]
       }
     ];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultShared));
