@@ -18,7 +18,7 @@ import {
   type EnrichedOrder,
 } from "@/lib/orders";
 import { getEnrichedOrder } from "@/lib/orders";
-import { useOrders } from "@/hooks/useOrders";
+import { useOrders, useAssignDriver, useUpdateOrderDetails } from "@/hooks/useOrders";
 import { PrintInvoiceDialog } from "./PrintInvoiceDialog";
 import { ViewExportDialog } from "./ViewExportDialog";
 import { BulkActionBar } from "./BulkActionBar";
@@ -33,6 +33,9 @@ import { toast } from "sonner";
 export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
   const navigate = useNavigate();
   const { data: apiOrders = [], refetch } = useOrders();
+  
+  const assignDriverMutation = useAssignDriver();
+  const updateOrderDetailsMutation = useUpdateOrderDetails();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<LegacyTabId>(initialTab || "New");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -406,18 +409,29 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
           if (!open) setSingleActionOrder(null);
         }}
         selectedCount={singleActionOrder ? 1 : selectedCount}
-        onAssign={(zone, zoneName, overrideExisting) => {
+        onAssign={async (zone, zoneName, overrideExisting) => {
           const targetIds = singleActionOrder ? [singleActionOrder.id] : Array.from(selectedIds);
-          setOrders((prev) =>
-            prev.map((o) => (targetIds.includes(o.id) ? { ...o, city: zoneName } : o))
-          );
-          toast.success(
-            `Assigned zone "${zoneName}" to ${targetIds.length} order(s)${
-              overrideExisting ? " (Override)" : ""
-            }`
-          );
-          setSelectedIds(new Set());
-          setSingleActionOrder(null);
+          const toastId = toast.loading(`Assigning zone "${zoneName}" to ${targetIds.length} order(s)...`);
+          try {
+            await Promise.all(
+              targetIds.map((id) =>
+                updateOrderDetailsMutation.mutateAsync({
+                  orderId: id,
+                  updates: { city: zoneName },
+                })
+              )
+            );
+            toast.success(
+              `Assigned zone "${zoneName}" to ${targetIds.length} order(s)${
+                overrideExisting ? " (Override)" : ""
+              }`,
+              { id: toastId }
+            );
+            setSelectedIds(new Set());
+            setSingleActionOrder(null);
+          } catch (e) {
+            toast.error("Failed to assign zone to one or more orders", { id: toastId });
+          }
         }}
       />
       <AssignDriverDialog
@@ -427,20 +441,27 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
           if (!open) setSingleActionOrder(null);
         }}
         selectedCount={singleActionOrder ? 1 : selectedCount}
-        onAssign={(driver) => {
+        onAssign={async (driver) => {
           const targetIds = singleActionOrder ? [singleActionOrder.id] : Array.from(selectedIds);
-          setOrders((prev) =>
-            prev.map((o) =>
-              targetIds.includes(o.id)
-                ? { ...o, driver: driver, status: "Driver Accepted" as const }
-                : o
-            )
-          );
-          toast.success(
-            `Assigned driver ${driver} to ${targetIds.length} order(s)`
-          );
-          setSelectedIds(new Set());
-          setSingleActionOrder(null);
+          const toastId = toast.loading(`Assigning driver to ${targetIds.length} order(s)...`);
+          try {
+            await Promise.all(
+              targetIds.map((id) =>
+                assignDriverMutation.mutateAsync({
+                  orderId: id,
+                  driverName: driver,
+                })
+              )
+            );
+            toast.success(
+              `Assigned driver to ${targetIds.length} order(s)`,
+              { id: toastId }
+            );
+            setSelectedIds(new Set());
+            setSingleActionOrder(null);
+          } catch (e) {
+            toast.error("Failed to assign driver to one or more orders", { id: toastId });
+          }
         }}
       />
       <PrintInvoiceDialog

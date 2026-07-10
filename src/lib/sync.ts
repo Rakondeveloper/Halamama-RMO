@@ -103,11 +103,15 @@ function seedIfNeeded(): void {
       for (const mockOrder of MOCK_ORDERS) {
         const index = parsed.findIndex((o) => o.id === mockOrder.id);
         if (index === -1) {
-          parsed.push(mockOrder);
+          parsed.push({
+            ...mockOrder,
+            itemsList: getMockOrderItems(mockOrder.id, mockOrder.items),
+            total: getMockOrderTotal(mockOrder.id, mockOrder.items, mockOrder.payment),
+          });
           updated = true;
         } else {
           const stored = parsed[index];
-          if (!stored.itemsList || stored.itemsList.length === 0 || mockOrder.id === "HM64110" || mockOrder.id === "HM99001") {
+          if (!stored.itemsList || stored.itemsList.length === 0 || ["HM64110", "HM99001", "HM68233", "HM68234"].includes(mockOrder.id)) {
             stored.itemsList = getMockOrderItems(mockOrder.id, mockOrder.items);
             stored.total = getMockOrderTotal(mockOrder.id, mockOrder.items, stored.payment);
             updated = true;

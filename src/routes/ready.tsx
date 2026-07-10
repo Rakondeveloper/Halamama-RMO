@@ -3,7 +3,7 @@ import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { OrderTable } from "@/components/orders/OrderTable";
 import { type Order } from "@/lib/orders";
-import { useOrders } from "@/hooks/useOrders";
+import { useOrders, useAssignDriver, useUpdateOrderDetails } from "@/hooks/useOrders";
 import { useState, useEffect } from "react";
 import { BulkActionBar } from "@/components/orders/BulkActionBar";
 import { AssignDriverDialog } from "@/components/orders/AssignDriverDialog";
@@ -27,6 +27,9 @@ function ReadyPage() {
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
   const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
   const { data: allOrders = [] } = useOrders();
+
+  const assignDriverMutation = useAssignDriver();
+  const updateOrderDetailsMutation = useUpdateOrderDetails();
 
   useEffect(() => {
     const t = window.setTimeout(() => setLoading(false), 380);
@@ -91,18 +94,46 @@ function ReadyPage() {
             open={zoneDialogOpen}
             onOpenChange={setZoneDialogOpen}
             selectedCount={selectedIds.size}
-            onAssign={(zone, zoneName, overrideExisting) => {
-              toast.success(`Assigned zone "${zoneName}" to ${selectedIds.size} order(s)${overrideExisting ? " (Override)" : ""}`);
-              setSelectedIds(new Set());
+            onAssign={async (zone, zoneName, overrideExisting) => {
+              const targetIds = Array.from(selectedIds);
+              const toastId = toast.loading(`Assigning zone "${zoneName}" to ${targetIds.length} order(s)...`);
+              try {
+                await Promise.all(
+                  targetIds.map((id) =>
+                    updateOrderDetailsMutation.mutateAsync({
+                      orderId: id,
+                      updates: { city: zoneName },
+                    })
+                  )
+                );
+                toast.success(`Assigned zone "${zoneName}" to ${targetIds.length} order(s)${overrideExisting ? " (Override)" : ""}`, { id: toastId });
+                setSelectedIds(new Set());
+              } catch (e) {
+                toast.error("Failed to assign zone to one or more orders", { id: toastId });
+              }
             }}
           />
           <AssignDriverDialog
             open={driverDialogOpen}
             onOpenChange={setDriverDialogOpen}
             selectedCount={selectedIds.size}
-            onAssign={(driver) => {
-              toast.success(`Assigned driver ${driver} to ${selectedIds.size} order(s)`);
-              setSelectedIds(new Set());
+            onAssign={async (driver) => {
+              const targetIds = Array.from(selectedIds);
+              const toastId = toast.loading(`Assigning driver to ${targetIds.length} order(s)...`);
+              try {
+                await Promise.all(
+                  targetIds.map((id) =>
+                    assignDriverMutation.mutateAsync({
+                      orderId: id,
+                      driverName: driver,
+                    })
+                  )
+                );
+                toast.success(`Assigned driver to ${targetIds.length} order(s)`, { id: toastId });
+                setSelectedIds(new Set());
+              } catch (e) {
+                toast.error("Failed to assign driver to one or more orders", { id: toastId });
+              }
             }}
           />
         </main>

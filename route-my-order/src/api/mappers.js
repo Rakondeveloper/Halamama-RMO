@@ -14,6 +14,9 @@
 function mapStatus(erpStatus, pickingStatus, packingStatus) {
   if (erpStatus === "Cancelled") return "failed";
   if (erpStatus === "Completed" || erpStatus === "To Bill") return "delivered";
+  if (erpStatus === "Driver Accepted") return "assigned";
+  if (erpStatus === "Started") return "started";
+  if (erpStatus === "Delivery Failed") return "failed";
 
   // Map based on warehouse pipeline
   if (packingStatus === "Completed" || erpStatus === "To Deliver") return "assigning";
@@ -45,6 +48,17 @@ export function mapErpNextToRmoOrder(raw) {
     : '5/20/2026 • 08:11 AM';
 
   const tags = raw.custom_tags ? raw.custom_tags.split(',').map(t => t.trim()) : [];
+  const status = mapStatus(raw.status, raw.custom_picking_status, raw.custom_packing_status);
+
+  // Resolve assignedTo depending on the workflow status of the order to avoid picker/packer priority override
+  let assignedTo = null;
+  if (["assigning", "assigned", "started", "delivered", "failed"].includes(status)) {
+    assignedTo = raw.custom_driver || null;
+  } else if (["packed", "packing"].includes(status)) {
+    assignedTo = raw.custom_packer || null;
+  } else {
+    assignedTo = raw.custom_picker || null;
+  }
 
   return {
     id: raw.name,
@@ -52,10 +66,10 @@ export function mapErpNextToRmoOrder(raw) {
     address: [raw.custom_shipping_address_line1, raw.custom_shipping_city].filter(Boolean).join(", ") || raw.custom_city || "Doha, Qatar",
     phone: raw.contact_phone || "",
     total: raw.grand_total || 0,
-    status: mapStatus(raw.status, raw.custom_picking_status, raw.custom_packing_status),
+    status,
     items: (raw.items || []).map(mapErpNextItemToRmoItem),
     bags: raw.custom_bags || 0,
-    assignedTo: raw.custom_picker || raw.custom_packer || raw.custom_driver || null,
+    assignedTo,
     pickedBy: raw.custom_picker || null,
     pickerName: raw.custom_picker ? raw.custom_picker.split('@')[0] : null,
     packedBy: raw.custom_packer || null,

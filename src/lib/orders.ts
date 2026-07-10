@@ -997,6 +997,51 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
         locationId: "loc-1",
       },
     ];
+  } else if (id === "HM68233") {
+    itemsList = [
+      {
+        id: "item-68233-1",
+        name: "Frida Baby Saline Spray",
+        sku: "NS-SPNC-1P-0200",
+        barcode: "9350764006338",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 31.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-252 / 4",
+        status: "Prepared",
+      },
+      {
+        id: "item-68233-2",
+        name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+        sku: "5021933",
+        barcode: "9350764006339",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 599.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-100 / 1",
+        status: "Allocated",
+      }
+    ];
+  } else if (id === "HM68234") {
+    itemsList = [
+      {
+        id: "item-68234-1",
+        name: "Stokke Tripp Trapp High Chair (Oak)",
+        sku: "ST-TTHC-OAK",
+        barcode: "STTTHCOAK001",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1199.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-02",
+        status: "Prepared",
+      }
+    ];
   } else {
     const totalItemsCount = totalItems || 1;
     if (totalItemsCount === 1) {
@@ -1279,6 +1324,76 @@ export const ACTIVE_STATUSES: OrderStatus[] = [
 ];
 
 export const MOCK_ORDERS: Order[] = [
+  {
+    id: "HM68233",
+    customerId: "cust-68233",
+    tat: "00h 10m",
+    date: "Jul 9",
+    time: "14:30",
+    customer: { name: "Ahmed Al-Malki", email: "ahmed.malki@example.com", phone: "55998877" },
+    channel: "shopify",
+    items: 2,
+    status: "Picking",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
+    payment: {
+      subtotal: 630,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 630,
+      balance: 630,
+      method: "Credit Card",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+  },
+  {
+    id: "HM68234",
+    customerId: "cust-68234",
+    tat: "00h 15m",
+    date: "Jul 9",
+    time: "15:00",
+    customer: { name: "Sara Al-Khuwaili", email: "sara.khuwaili@example.com", phone: "33445577" },
+    channel: "web",
+    items: 1,
+    status: "Packing",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: "packer@rmo.qa",
+    total: 1199,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/1 Picked",
+    packingStatus: "0/1 Packed",
+    bags: 0,
+    lat: 25.3286,
+    lng: 51.5310,
+    payment: {
+      subtotal: 1199,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 1199,
+      balance: 1199,
+      method: "Cash on Delivery",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+  },
   {
     id: "HM99005",
     customerId: "cust-99005",

@@ -171,7 +171,8 @@ export async function assignDriver(
 
   await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
     custom_driver: driverName,
-    custom_driver_status: "Assigned",
+    custom_driver_status: driverName ? "Assigned" : "Unassigned",
+    status: driverName ? "Driver Accepted" : "Ready to Assign",
   });
 }
 
