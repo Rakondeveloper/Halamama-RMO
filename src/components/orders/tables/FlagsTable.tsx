@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order } from "@/lib/orders";
-import { tatColorClass, statusDotClass } from "@/lib/orders";
+import { tatColorClass, statusDotClass, getUserDisplayName } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import {
   Eye,
@@ -251,7 +251,7 @@ export function FlagsTable({
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className="text-xs font-medium text-muted-foreground">
-                    {order.driver || "—"}
+                    {getUserDisplayName(order.driver) || "—"}
                   </span>
                 </td>
                 <td className="py-3 pr-4 align-middle">

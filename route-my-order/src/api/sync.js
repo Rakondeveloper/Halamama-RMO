@@ -114,6 +114,64 @@ export function getSharedOrdersForRmo() {
   }
 }
 
+const MOCK_NAMES = {
+  'picker@rmo.qa': 'Ahmed Khalil',
+  'packer@rmo.qa': 'Sara Al-Thani',
+  'driver@rmo.qa': 'Omar Farooq',
+  'nijad@rmo.qa': 'Nijad',
+  'mashood@rmo.qa': 'Mashood',
+};
+
+/**
+ * Resolve any name or email address to its corresponding email address.
+ */
+function getUserEmail(userValue) {
+  if (!userValue) return null;
+  if (userValue.includes('@')) return userValue.toLowerCase();
+  
+  // Search custom managed users registry first
+  try {
+    const rawUsers = localStorage.getItem(USERS_KEY);
+    if (rawUsers) {
+      const users = JSON.parse(rawUsers);
+      const found = users.find(u => u.name && u.name.toLowerCase() === userValue.toLowerCase());
+      if (found && found.email) return found.email.toLowerCase();
+    }
+  } catch (e) {}
+
+  // Fallback to hardcoded mock names lookup
+  const entry = Object.entries(MOCK_NAMES).find(
+    ([_, val]) => val.toLowerCase() === userValue.toLowerCase()
+  );
+  if (entry) return entry[0];
+
+  // Raw fallback format
+  return `${userValue.replace(/\s+/g, '').toLowerCase()}@rmo.qa`;
+}
+
+/**
+ * Resolve any name or email address to its display name.
+ */
+function getUserDisplayName(userValue) {
+  if (!userValue) return null;
+  if (userValue.includes('@')) {
+    const email = userValue.toLowerCase();
+    if (MOCK_NAMES[email]) return MOCK_NAMES[email];
+    
+    try {
+      const rawUsers = localStorage.getItem(USERS_KEY);
+      if (rawUsers) {
+        const users = JSON.parse(rawUsers);
+        const found = users.find(u => u.email && u.email.toLowerCase() === email);
+        if (found && found.name) return found.name;
+      }
+    } catch (e) {}
+    
+    return userValue.split('@')[0];
+  }
+  return userValue;
+}
+
 /**
  * Convert a single admin-format order to RMO format.
  */
@@ -154,20 +212,18 @@ function adminToRmo(adminOrder) {
     status: status,
     items: generatedItems,
     bags: adminOrder.bags || 0,
-    assignedTo: (adminOrder.driver && ['assigning', 'assigned', 'started', 'delivered', 'failed'].includes(status))
-      ? (adminOrder.driver.includes('@') ? adminOrder.driver : `${adminOrder.driver}@rmo.qa`)
-      : (adminOrder.picker
-          ? (adminOrder.picker.includes('@') ? adminOrder.picker : `${adminOrder.picker}@rmo.qa`)
-          : (adminOrder.packer
-              ? (adminOrder.packer.includes('@') ? adminOrder.packer : `${adminOrder.packer}@rmo.qa`)
-              : null)),
+    assignedTo: ['assigning', 'assigned', 'started', 'delivered', 'failed'].includes(status)
+      ? getUserEmail(adminOrder.driver)
+      : (['packed', 'packing'].includes(status)
+          ? getUserEmail(adminOrder.packer)
+          : getUserEmail(adminOrder.picker)),
     date: `${adminOrder.date || ''} • ${adminOrder.time || ''}`,
     // Preserve extra fields
-    pickedBy: adminOrder.picker ? (adminOrder.picker.includes('@') ? adminOrder.picker : `${adminOrder.picker}@rmo.qa`) : null,
-    pickerName: adminOrder.picker || null,
-    packedBy: adminOrder.packer ? (adminOrder.packer.includes('@') ? adminOrder.packer : `${adminOrder.packer}@rmo.qa`) : null,
-    packerName: adminOrder.packer || null,
-    driverEmail: adminOrder.driver ? (adminOrder.driver.includes('@') ? adminOrder.driver : `${adminOrder.driver}@rmo.qa`) : null,
+    pickedBy: getUserEmail(adminOrder.picker),
+    pickerName: getUserDisplayName(adminOrder.picker),
+    packedBy: getUserEmail(adminOrder.packer),
+    packerName: getUserDisplayName(adminOrder.packer),
+    driverEmail: getUserEmail(adminOrder.driver),
     tags: adminOrder.tags || [],
     payment: adminOrder.payment || null,
     lat: adminOrder.lat || null,
@@ -261,6 +317,8 @@ export function findManagedUser(email) {
 // Seed shared orders for port 5174 if not present (Demo Mode)
 export function seedSharedOrdersForRmo() {
   if (!isDemoMode()) return;
+
+  const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   const defaultShared = [
     {
@@ -543,6 +601,66 @@ export function seedSharedOrdersForRmo() {
           itemType: "VL_SUPPLIER"
         }
       ]
+    },
+    {
+      id: "HM99006",
+      customerId: "cust-99006",
+      date: todayLabel,
+      time: "11:15",
+      customer: { name: "Fatima Al-Suwaidi", email: "fatima.suwaidi@example.com", phone: "33998877" },
+      items: 1,
+      status: "New",
+      city: "Doha",
+      total: 31,
+      itemsList: [
+        {
+          id: "dummy-item-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99007",
+      customerId: "cust-99007",
+      date: todayLabel,
+      time: "11:20",
+      customer: { name: "Hamad Al-Kaabi", email: "hamad.kaabi@example.com", phone: "55889900" },
+      items: 2,
+      status: "Picking",
+      picker: "picker@rmo.qa",
+      city: "Al Rayyan, Doha",
+      total: 630,
+      itemsList: [
+        {
+          id: "dummy-item-2-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-item-2-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
     }
   ];
 
@@ -552,11 +670,16 @@ export function seedSharedOrdersForRmo() {
   } else {
     try {
       const parsed = JSON.parse(existing);
-      const hasPackerOrders = parsed.some(o => o.id === "HM68230");
-      if (!hasPackerOrders) {
-        const defaultIds = new Set(defaultShared.map(o => o.id));
-        const filteredExisting = parsed.filter(o => !defaultIds.has(o.id));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([...defaultShared, ...filteredExisting]));
+      const missingOrders = defaultShared.filter(o => !parsed.some(existingOrder => existingOrder.id === o.id));
+      if (missingOrders.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([...parsed, ...missingOrders]));
+      } else {
+        const hasPackerOrders = parsed.some(o => o.id === "HM68230");
+        if (!hasPackerOrders) {
+          const defaultIds = new Set(defaultShared.map(o => o.id));
+          const filteredExisting = parsed.filter(o => !defaultIds.has(o.id));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([...defaultShared, ...filteredExisting]));
+        }
       }
     } catch (e) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultShared));

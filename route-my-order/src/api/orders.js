@@ -556,12 +556,24 @@ export const completePicking = async (orderId, pickerEmail, pickerName) => {
       o.assignedTo = null;
       o.pickedBy = pickerEmail || 'picker@rmo.qa';
       o.pickerName = pickerName || 'Ahmed Khalil';
+      const now = new Date();
+      o.date = now.toLocaleString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).replace(',', ' •');
     }
 
     // Sync back to admin dashboard
     updateSharedOrderFromRmo(orderId, (adminOrder) => {
       adminOrder.status = 'Picked';
-      adminOrder.picker = pickerName || pickerEmail;
+      adminOrder.picker = pickerEmail || pickerName;
+      const now = new Date();
+      adminOrder.date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      adminOrder.time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
       // Update local F01 item statuses to Prepared
       if (adminOrder.itemsList) {
@@ -599,13 +611,25 @@ export const completePacking = async (orderId, bags, packerEmail, packerName) =>
       o.assignedTo = null;
       o.packedBy = packerEmail || 'packer@rmo.qa';
       o.packerName = packerName || 'Packer';
+      const now = new Date();
+      o.date = now.toLocaleString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).replace(',', ' •');
     }
 
     // Sync back to admin dashboard
     updateSharedOrderFromRmo(orderId, (adminOrder) => {
       adminOrder.status = 'Ready to Assign';
       adminOrder.bags = bags;
-      adminOrder.packer = packerName || packerEmail;
+      adminOrder.packer = packerEmail || packerName;
+      const now = new Date();
+      adminOrder.date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      adminOrder.time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 
       if (adminOrder.itemsList) {
         const packedCount = adminOrder.itemsList.filter(item => item.status === 'Prepared' || !item.fc || item.fc === 'F01').length;

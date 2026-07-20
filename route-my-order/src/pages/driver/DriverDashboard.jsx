@@ -125,7 +125,7 @@ export function DriverDashboard() {
   const [loading, setLoading] = useState(true)
   const [activeOrder, setActiveOrder] = useState(null)
   const [allOrdersModalOpen, setAllOrdersModalOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('All')
+  const [activeTab, setActiveTab] = useState('Accepted')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortZone, setSortZone] = useState('')
   

@@ -488,12 +488,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 10. Picker assigned ────────────────────────────────────────────────────
   if (hasPicker) {
+    const pickerName = getPickerDisplayName(base.picker);
     ev.push({
       id: "tl-picker-assigned",
-      title: `Picker assigned: ${base.picker} at ${fcName}`,
+      title: `Picker assigned: ${pickerName} at ${fcName}`,
       ...t5,
-      description: `By: ${base.picker} · ${fcName} (${fcCode})`,
-      actor: base.picker!,
+      description: `By: ${pickerName} · ${fcName} (${fcCode})`,
+      actor: pickerName,
       actorRole: "picker",
       facility: `${fcName} (${fcCode})`,
       hasRawDetails: true,
@@ -504,10 +505,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     itemNames.forEach((_, i) => {
       ev.push({
         id: `tl-item-picked-${i}`,
-        title: `Item picked (qty: 1) by ${base.picker}`,
+        title: `Item picked (qty: 1) by ${pickerName}`,
         ...fmt(base.date, base.time, 5 + i + 1),
-        description: `By: ${base.picker}`,
-        actor: base.picker!,
+        description: `By: ${pickerName}`,
+        actor: pickerName,
         actorRole: "picker",
         hasRawDetails: true,
         type: "item_picked",
@@ -517,10 +518,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     // ── 12. Picking completed ──────────────────────────────────────────────
     ev.push({
       id: "tl-pick-end",
-      title: `Picking completed by ${base.picker}`,
+      title: `Picking completed by ${pickerName}`,
       ...t8,
-      description: `By: ${base.picker}`,
-      actor: base.picker!,
+      description: `By: ${pickerName}`,
+      actor: pickerName,
       actorRole: "picker",
       hasRawDetails: true,
       type: "picking_completed",
@@ -538,12 +539,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 13. Packer assigned ────────────────────────────────────────────────────
   if (hasPacker) {
+    const packerName = getUserDisplayName(base.packer);
     ev.push({
       id: "tl-packer-assigned",
-      title: `Packer assigned: ${base.packer} at ${fcName}`,
+      title: `Packer assigned: ${packerName} at ${fcName}`,
       ...t15,
-      description: `By: ${base.packer} · ${fcName} (${fcCode})`,
-      actor: base.packer!,
+      description: `By: ${packerName} · ${fcName} (${fcCode})`,
+      actor: packerName,
       actorRole: "packer",
       facility: `${fcName} (${fcCode})`,
       type: "packer_assigned",
@@ -553,10 +555,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     itemNames.forEach((_, i) => {
       ev.push({
         id: `tl-item-packed-${i}`,
-        title: `Item packed (qty: 1) by ${base.packer}`,
+        title: `Item packed (qty: 1) by ${packerName}`,
         ...fmt(base.date, base.time, 15 + i + 1),
-        description: `By: ${base.packer}`,
-        actor: base.packer!,
+        description: `By: ${packerName}`,
+        actor: packerName,
         actorRole: "packer",
         hasRawDetails: true,
         type: "item_packed",
@@ -567,10 +569,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     const bags = base.bags ?? 1;
     ev.push({
       id: "tl-pack-end",
-      title: `Packing completed — ${bags} bag(s) by ${base.packer}`,
+      title: `Packing completed — ${bags} bag(s) by ${packerName}`,
       ...t20,
-      description: `By: ${base.packer}`,
-      actor: base.packer!,
+      description: `By: ${packerName}`,
+      actor: packerName,
       actorRole: "packer",
       hasRawDetails: true,
       metadata: { bags: String(bags) },
@@ -590,24 +592,25 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
   // ── 16. Driver assigned ────────────────────────────────────────────────────
   if (hasDriver) {
     const assigner = base.coordinator !== "-" ? base.coordinator : "suhail_halamama";
+    const driverName = getUserDisplayName(base.driver);
     ev.push({
       id: "tl-drv-assign",
-      title: `Driver assigned: ${base.driver} by ${assigner}`,
+      title: `Driver assigned: ${driverName} by ${assigner}`,
       ...t25,
-      description: `By: ${assigner} · Driver: ${base.driver}\nDriver assigned internally (forced)`,
+      description: `By: ${assigner} · Driver: ${driverName}\nDriver assigned internally (forced)`,
       actor: assigner,
       actorRole: "admin",
-      metadata: { driver: base.driver!, method: "internally (forced)" },
+      metadata: { driver: driverName, method: "internally (forced)" },
       type: "driver_assigned",
     });
 
     // ── 17. Bags verified ──────────────────────────────────────────────────
     ev.push({
       id: "tl-bags-verified",
-      title: `Bags verified by ${base.driver}`,
+      title: `Bags verified by ${driverName}`,
       ...t35,
-      description: `By: ${base.driver}\nDriver verified bags match & count`,
-      actor: base.driver!,
+      description: `By: ${driverName}\nDriver verified bags match & count`,
+      actor: driverName,
       actorRole: "driver",
       type: "bags_verified",
     });
@@ -616,10 +619,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     if (isDelivered || isActive) {
       ev.push({
         id: "tl-started",
-        title: `Driver ${base.driver} started trip`,
+        title: `Driver ${driverName} started trip`,
         ...t35,
-        description: `By: ${base.driver}`,
-        actor: base.driver!,
+        description: `By: ${driverName}`,
+        actor: driverName,
         actorRole: "driver",
         type: "started",
       });
@@ -628,13 +631,14 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 19–25. Delivered + post-delivery automation ─────────────────────────────
   if (isDelivered) {
+    const driverName = getUserDisplayName(base.driver);
     // Delivery event
     ev.push({
       id: "tl-delivered",
-      title: `Order delivered by ${base.driver}`,
+      title: `Order delivered by ${driverName}`,
       ...t58,
-      description: `By: ${base.driver}`,
-      actor: base.driver!,
+      description: `By: ${driverName}`,
+      actor: driverName,
       actorRole: "driver",
       type: "delivered",
     });
@@ -642,10 +646,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     // Delivered (with payment details)
     ev.push({
       id: "tl-delivered-payment",
-      title: `Order delivered by ${base.driver}`,
+      title: `Order delivered by ${driverName}`,
       ...t58,
-      description: `By: ${base.driver}\nPayment: cash (Amount: ${base.total})`,
-      actor: base.driver!,
+      description: `By: ${driverName}\nPayment: cash (Amount: ${base.total})`,
+      actor: driverName,
       actorRole: "driver",
       metadata: { paymentMethod: "cash", paymentAmount: String(base.total) },
       type: "delivered",
@@ -2263,3 +2267,26 @@ export function getCustomerById(customerId: string): Order | undefined {
   const list = getOrdersForCustomerId(customerId);
   return list[0];
 }
+
+/** Resolve any user email to display name from local user registry */
+export function getUserDisplayName(userValue: string | null | undefined): string {
+  if (!userValue) return "";
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      const rawUsers = localStorage.getItem("hm_users");
+      if (rawUsers) {
+        const users = JSON.parse(rawUsers);
+        const found = users.find((u: any) => u.email === userValue || u.name === userValue);
+        if (found && found.name) {
+          return found.name;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return userValue;
+}
+
+export const getPickerDisplayName = getUserDisplayName;
+

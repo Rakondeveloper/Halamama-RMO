@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, type Order } from "@/lib/orders";
+import { getOrderItemsCount, tatColorClass, getUserDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -125,7 +125,7 @@ export function PackingTable({
                 <td className="py-3 pr-3 align-middle">
                   {order.packer ? (
                     <CrewTag
-                      name={order.packer}
+                      name={getUserDisplayName(order.packer)}
                       Icon={Package}
                       color="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400"
                     />

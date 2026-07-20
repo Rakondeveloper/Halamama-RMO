@@ -476,6 +476,30 @@ function ScheduledInstallationsContent() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Sticky Bulk Action Bar at Bottom */}
+      {selectedIds.size > 0 && activeTab === "Pending" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900/95 dark:bg-slate-950/95 text-slate-100 px-6 py-3.5 rounded-2xl shadow-2xl border border-slate-800/80 dark:border-slate-800/60 backdrop-blur-md animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <span className="text-xs sm:text-sm font-bold tracking-tight text-white">
+            {selectedIds.size} installation{selectedIds.size > 1 ? "s" : ""} selected
+          </span>
+          <div className="h-4 w-[1px] bg-slate-800" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors px-3 py-1.5 rounded-xl cursor-pointer"
+            >
+              Clear Selection
+            </button>
+            <Button
+              onClick={() => setAssignDropdownOpen(true)}
+              className="gap-2 rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground shadow-md font-bold text-xs h-9 px-4 transition-all cursor-pointer"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Assign Driver
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

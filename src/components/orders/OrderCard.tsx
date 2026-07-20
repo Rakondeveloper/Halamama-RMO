@@ -4,6 +4,8 @@ import {
   getOrderItemsCount,
   parseTatHours,
   statusDotClass,
+  getPickerDisplayName,
+  getUserDisplayName,
   type Order,
   type OrderStatus,
 } from "@/lib/orders";
@@ -221,7 +223,7 @@ export function OrderCard({
           {order.picker && (
             <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-[3px] text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200/50 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/30">
               <User className="h-2.5 w-2.5" aria-hidden />
-              Picker: {order.picker}
+              Picker: {getPickerDisplayName(order.picker)}
             </span>
           )}
 
@@ -229,7 +231,7 @@ export function OrderCard({
           {order.packer && (
             <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-[3px] text-[10px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-200/50 dark:bg-teal-950/40 dark:text-teal-300 dark:ring-teal-800/30">
               <Package className="h-2.5 w-2.5" aria-hidden />
-              Packer: {order.packer}
+              Packer: {getUserDisplayName(order.packer)}
             </span>
           )}
 

@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { tatColorClass, getOrderItemsCount, type Order } from "@/lib/orders";
+import { tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Package, Truck, User, Eye } from "lucide-react";
 import { CrewTag } from "./CrewTag";
@@ -75,7 +75,7 @@ function DriverCell({ order }: { order: Order }) {
   return (
     <div className="flex flex-col items-start gap-1">
       <CrewTag
-        name={order.driver}
+        name={getUserDisplayName(order.driver)}
         Icon={Truck}
         color="bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
       />
@@ -88,7 +88,7 @@ function PickerCell({ order }: { order: Order }) {
   if (!order.picker) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <CrewTag
-      name={order.picker}
+      name={getPickerDisplayName(order.picker)}
       Icon={User}
       color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
     />
@@ -99,7 +99,7 @@ function PackerCell({ order }: { order: Order }) {
   if (!order.packer) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <CrewTag
-      name={order.packer}
+      name={getUserDisplayName(order.packer)}
       Icon={Package}
       color="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400"
     />
@@ -255,7 +255,7 @@ export function OrderTableRow({
             <td className="py-3 pr-3 align-middle">
               {order.picker ? (
                 <CrewTag
-                  name={order.picker}
+                  name={getPickerDisplayName(order.picker)}
                   Icon={User}
                   color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
                 />
@@ -307,7 +307,7 @@ export function OrderTableRow({
             <td className="py-3 pr-3 align-middle">
               {order.packer ? (
                 <CrewTag
-                  name={order.packer}
+                  name={getUserDisplayName(order.packer)}
                   Icon={Package}
                   color="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400"
                 />
@@ -408,15 +408,15 @@ export function OrderTableRow({
                 <ul className="mt-2 space-y-2">
                   <li className="flex items-center gap-2 font-medium">
                     <Truck className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    Driver: {order.driver ?? "—"}
+                    Driver: {getUserDisplayName(order.driver) || "—"}
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <User className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    Picker: {order.picker ?? "—"}
+                    Picker: {getPickerDisplayName(order.picker) || "—"}
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <Package className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    Packer: {order.packer ?? "—"}
+                    Packer: {getUserDisplayName(order.packer) || "—"}
                   </li>
                 </ul>
               </div>

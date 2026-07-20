@@ -127,7 +127,7 @@ function SidebarContent({ closeOnNavigate = false }: { closeOnNavigate?: boolean
         <div key={item.title} className="flex flex-col gap-1 my-1">
           <button
             onClick={() => setOpenGroups(prev => ({ ...prev, [item.title]: !isOpen }))}
-            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
           >
             <Icon className="h-4.5 w-4.5" strokeWidth={2} />
             <span className="flex-1 text-left">{item.title}</span>
@@ -145,9 +145,9 @@ function SidebarContent({ closeOnNavigate = false }: { closeOnNavigate?: boolean
                     to={sub.url}
                     search={sub.search}
                     className={cn(
-                      "flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                      "flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold transition-all",
                       isSubActive
-                        ? "bg-sidebar-accent text-primary font-semibold"
+                        ? "bg-sidebar-accent text-primary font-bold"
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                     )}
                   >
@@ -175,9 +175,9 @@ function SidebarContent({ closeOnNavigate = false }: { closeOnNavigate?: boolean
         to={item.url}
         search={item.search as any}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all relative sidebar-premium-item",
+          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all relative sidebar-premium-item",
           active
-            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft border-l-2 border-primary"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-soft border-l-2 border-primary font-bold"
             : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
         )}
       >

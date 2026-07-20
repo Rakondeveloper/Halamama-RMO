@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, type Order } from "@/lib/orders";
+import { getOrderItemsCount, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -93,7 +93,7 @@ export function PickingTable({
                 <td className="py-3 pr-3 align-middle">
                   {order.picker ? (
                     <CrewTag
-                      name={order.picker}
+                      name={getPickerDisplayName(order.picker)}
                       Icon={Package}
                       color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
                     />
