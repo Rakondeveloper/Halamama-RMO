@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -49,7 +49,8 @@ export function PickingTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Picking");
+            const tatClass = tatColorClass(displayTat);
             return (
               <tr
                 key={order.id}
@@ -62,7 +63,7 @@ export function PickingTable({
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">

@@ -188,6 +188,8 @@ export interface Order {
   lng?: number;
   itemsList?: OrderItemType[];
   zone?: string;
+  stageArrivedAt?: Record<string, string>;
+  stageTat?: Record<string, string>;
 }
 
 export type ItemFulfillmentType = "FC" | "MWH" | "VL_SUPPLIER" | "VL_HMA";
@@ -1253,7 +1255,6 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
       subtotal: calculatedTotal - 10,
       discount: 0,
       shipping: 10,
-      total: calculatedTotal,
       balance: ((baseOrder as any).paymentBalance ?? 0),
       shippingMethod: "Standard Delivery",
     },
@@ -1332,7 +1333,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM68233",
     customerId: "cust-68233",
     tat: "00h 10m",
-    date: "Jul 9",
+    date: getTodayDateString(),
     time: "14:30",
     customer: { name: "Ahmed Al-Malki", email: "ahmed.malki@example.com", phone: "55998877" },
     channel: "shopify",
@@ -1367,7 +1368,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM68234",
     customerId: "cust-68234",
     tat: "00h 15m",
-    date: "Jul 9",
+    date: getTodayDateString(),
     time: "15:00",
     customer: { name: "Sara Al-Khuwaili", email: "sara.khuwaili@example.com", phone: "33445577" },
     channel: "web",
@@ -1402,7 +1403,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM99005",
     customerId: "cust-99005",
     tat: "00h 01m",
-    date: "Jun 27",
+    date: getTodayDateString(),
     time: "10:55",
     customer: { name: "Khalid Al-Nuaimi", email: "khalid.nuaimi@example.com", phone: "55776688" },
     channel: "shopify",
@@ -1436,9 +1437,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM59238",
     customerId: "cust-59238",
-    tat: "642h 50m",
-    date: "Apr 16",
-    time: "18:34",
+    tat: "01h 30m",
+    date: getTodayDateString(),
+    time: "11:34",
     customer: { name: "test test", email: "nandu@halamama.com", phone: "77532802" },
     channel: "web",
     items: 0,
@@ -1478,9 +1479,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM59239",
     customerId: "cust-59239",
-    tat: "642h 49m",
-    date: "Apr 16",
-    time: "18:35",
+    tat: "02h 10m",
+    date: getTodayDateString(),
+    time: "10:35",
     customer: { name: "Sara Alsooj", email: "bent-alsooj@hotmail.com", phone: "55339494" },
     channel: "5382175",
     items: 2,
@@ -1520,7 +1521,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM59245",
     customerId: "cust-59245",
     tat: "02h 15m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "11:00",
     customer: { name: "Fatima Al-Thani", email: "fatima.thani@gmail.com", phone: "33442211" },
     channel: "shopify",
@@ -1557,7 +1558,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64110",
     customerId: "cust-64110",
     tat: "00h 28m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "10:15",
     customer: { name: "Dana Al-Thani", email: "dana.thani@gmail.com", phone: "55223344" },
     channel: "shopify",
@@ -1580,7 +1581,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64112",
     customerId: "cust-64112",
     tat: "00h 58m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "09:45",
     customer: { name: "Zoe Henderson", email: "zoe.h@outlook.com", phone: "33445566" },
     channel: "web",
@@ -1603,7 +1604,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64116",
     customerId: "cust-64116",
     tat: "01h 31m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "09:12",
     customer: { name: "Liam Gallagher", email: "liam.g@oasis.com", phone: "55009988" },
     channel: "web",
@@ -1626,7 +1627,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64118",
     customerId: "cust-64118",
     tat: "02h 03m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "08:40",
     customer: { name: "Amira Haddad", email: "amira.h@gmail.com", phone: "66778899" },
     channel: "shopify",
@@ -1649,7 +1650,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60104",
     customerId: "cust-60104",
     tat: "03h 22m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "12:41",
     customer: { name: "Hessa Al-Jaber", email: "hessa.jaber@gmail.com", phone: "55330012" },
     channel: "shopify",
@@ -1673,7 +1674,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60105",
     customerId: "cust-60105",
     tat: "04h 03m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "13:12",
     customer: { name: "Rashed Nasser", email: "rashed.nasser@gmail.com", phone: "55881234" },
     channel: "web",
@@ -1697,7 +1698,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60106",
     customerId: "cust-60106",
     tat: "05h 37m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "13:48",
     customer: { name: "Dana Ibrahim", email: "dana.ibrahim@gmail.com", phone: "55773391" },
     channel: "web",
@@ -1721,7 +1722,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60107",
     customerId: "cust-60107",
     tat: "06h 10m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "14:26",
     customer: { name: "Lina Qassim", email: "lina.qassim@gmail.com", phone: "55990031" },
     channel: "shopify",
@@ -1760,7 +1761,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60108",
     customerId: "cust-60108",
     tat: "07h 25m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "15:04",
     customer: { name: "Othman Kareem", email: "othman.kareem@gmail.com", phone: "55447766" },
     channel: "web",
@@ -1812,9 +1813,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM63850",
     customerId: "cust-63850",
-    tat: "154h 34m",
-    date: "May 20",
-    time: "02:53",
+    tat: "02h 34m",
+    date: getTodayDateString(),
+    time: "10:15",
     customer: { name: "Noora Almannai", email: "n.a.y.1@hotmail.com", phone: "+97466111881" },
     channel: "web" as const,
     items: 1,
@@ -1836,8 +1837,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68300",
     customerId: "cust-68300",
-    tat: "50h 00m",
-    date: "May 25",
+    tat: "01h 00m",
+    date: getTodayDateString(),
     time: "12:30",
     customer: { name: "Fatima Al-Kuwari", email: "fatima.kuwari@example.com", phone: "55889900" },
     channel: "shopify" as const,
@@ -1860,8 +1861,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68229",
     customerId: "cust-68229",
-    tat: "48h 15m",
-    date: "May 25",
+    tat: "01h 15m",
+    date: getTodayDateString(),
     time: "14:10",
     customer: { name: "Sara Al Sulaiti", email: "sara.sulaiti@example.com", phone: "55112233" },
     channel: "web" as const,
@@ -1884,9 +1885,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68258",
     customerId: "cust-68258",
-    tat: "46h 10m",
-    date: "May 25",
-    time: "16:20",
+    tat: "00h 40m",
+    date: getTodayDateString(),
+    time: "15:20",
     customer: { name: "Mouza Al Derham", email: "mouza.derham@example.com", phone: "55667788" },
     channel: "web" as const,
     items: 2,
@@ -1908,8 +1909,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68268",
     customerId: "cust-68268",
-    tat: "44h 05m",
-    date: "May 26",
+    tat: "02h 05m",
+    date: getTodayDateString(),
     time: "09:30",
     customer: { name: "aisha alnaemi", email: "aisha.naemi@example.com", phone: "55990011" },
     channel: "shopify" as const,
@@ -1923,7 +1924,6 @@ export const MOCK_ORDERS: Order[] = [
     packer: "mashood",
     total: 899,
     shopify: "Pending" as const,
-    pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
     lat: 25.2854,
@@ -1932,8 +1932,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM64839",
     customerId: "cust-64839",
-    tat: "432h 12m",
-    date: "May 15",
+    tat: "03h 12m",
+    date: getTodayDateString(),
     time: "11:15",
     customer: { name: "test test", email: "test.test@example.com", phone: "77532802" },
     channel: "web" as const,
@@ -1957,7 +1957,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM99001",
     customerId: "cust-99001",
     tat: "01h 05m",
-    date: "Jun 16",
+    date: getTodayDateString(),
     time: "14:00",
     customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
     channel: "shopify" as const,
@@ -1980,7 +1980,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM99003",
     customerId: "cust-99003",
     tat: "04h 15m",
-    date: "Jun 16",
+    date: getTodayDateString(),
     time: "11:20",
     customer: { name: "Mohammed Al-Sada", email: "m.sada@example.com", phone: "66554433" },
     channel: "web" as const,
@@ -2192,11 +2192,207 @@ export function parseTatHours(tat: string): number {
 
 /** Get TAT color class based on hours elapsed */
 export function tatColorClass(tat: string): string {
+  if (tat === "—") return "text-muted-foreground";
   const hours = parseTatHours(tat);
   if (hours <= 2) return "text-emerald-600 dark:text-emerald-400";
   if (hours <= 12) return "text-amber-600 dark:text-amber-400";
   if (hours <= 24) return "text-orange-600 dark:text-orange-400";
   return "text-red-600 dark:text-red-400";
+}
+
+/** Get today's formatted date string e.g. "Jul 22" */
+export function getTodayDateString(): string {
+  return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Format ISO timestamp string or epoch ms to TAT string like "1h 30m" or "50m" */
+export function formatTatFromTimestamp(timestampISO: string | number): string {
+  const date = new Date(timestampISO);
+  if (isNaN(date.getTime())) return "0m";
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+/** Format duration between two timestamps as TAT string like "2h 10m" or "50m" */
+export function formatTatBetweenTimestamps(
+  startTimestampISO: string | number,
+  endTimestampISO: string | number
+): string {
+  const start = new Date(startTimestampISO).getTime();
+  const end = new Date(endTimestampISO).getTime();
+  if (isNaN(start) || isNaN(end)) return "0m";
+  const diffMs = Math.max(0, end - start);
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+/**
+ * The ordered lifecycle stages for an order.
+ * Used to determine whether an order has "reached" a given stage yet.
+ */
+const STAGE_ORDER: string[] = [
+  "New",
+  "Picking",
+  "Picked",
+  "Packing",
+  "Ready to Assign",
+  "Driver Accepted",
+  "Started",
+  "Delivered",
+];
+
+/** Stage offsets (minutes from creation) used to seed stageArrivedAt for mock/demo orders. */
+const STAGE_OFFSETS: Record<string, number> = {
+  New: 0,
+  Picking: 20,
+  Picked: 45,
+  Packing: 60,
+  "Ready to Assign": 80,
+  "Driver Accepted": 100,
+  Started: 110,
+  Delivered: 130,
+  Installation: 150,
+  "Delivery Failed": 120,
+  Cancelled: 90,
+  Flagged: 100,
+  Replacement: 140,
+  Exchange: 140,
+};
+
+/**
+ * Compute stageArrivedAt timestamps for an order based on its date, time, and current status.
+ * For mock/demo orders that don't have live transition timestamps.
+ * Only populates stages up to and including the order's current status.
+ */
+export function computeStageArrivedAt(order: {
+  date: string;
+  time: string;
+  status: OrderStatus;
+}): Record<string, string> {
+  // Parse the order's creation date+time
+  const dateStr = order.date; // e.g. "Jul 9" or "May 27"
+  const timeStr = order.time; // e.g. "14:30"
+  const year = new Date().getFullYear();
+  const creationDate = new Date(`${dateStr} ${year} ${timeStr}`);
+  if (isNaN(creationDate.getTime())) {
+    // Fallback: use current time minus a default offset
+    return { New: new Date(Date.now() - 60 * 60 * 1000).toISOString() };
+  }
+
+  const result: Record<string, string> = {};
+  const statusIdx = STAGE_ORDER.indexOf(order.status);
+
+  // For statuses in the main lifecycle
+  if (statusIdx >= 0) {
+    for (let i = 0; i <= statusIdx; i++) {
+      const stage = STAGE_ORDER[i];
+      const offset = STAGE_OFFSETS[stage] ?? 0;
+      result[stage] = new Date(creationDate.getTime() + offset * 60 * 1000).toISOString();
+    }
+  } else {
+    // For non-lifecycle statuses (Cancelled, Delivery Failed, Flagged, Replacement, Exchange, Installation)
+    // Still populate the stages it would have passed through
+    // All these orders went through at least New → Picking → Picked → Packing → Ready to Assign
+    const passedStages = ["New", "Picking", "Picked", "Packing", "Ready to Assign"];
+
+    // Some statuses imply delivery was attempted
+    const deliveryStatuses = ["Delivery Failed", "Delivered", "Installation", "Replacement", "Exchange"];
+    if (deliveryStatuses.includes(order.status)) {
+      passedStages.push("Driver Accepted", "Started");
+    }
+
+    for (const stage of passedStages) {
+      const offset = STAGE_OFFSETS[stage] ?? 0;
+      result[stage] = new Date(creationDate.getTime() + offset * 60 * 1000).toISOString();
+    }
+
+    // Add the current status itself
+    const currentOffset = STAGE_OFFSETS[order.status] ?? 120;
+    result[order.status] = new Date(creationDate.getTime() + currentOffset * 60 * 1000).toISOString();
+  }
+
+  return result;
+}
+
+/**
+ * Calculates display TAT string for an order based on the active tab/stage context.
+ *
+ * Requirements:
+ * - On ALL, Unfulfilled, or New tabs: TAT is displayed from the time the order arrived in the "New" tab (creation time).
+ * - On stage-specific tabs (Picking, Picked, Packing, Ready to Assign, In Delivery, Delivered, Installation, etc.):
+ *   TAT is displayed from the time the order arrived in THAT specific list/stage.
+ * - On Delivered tab/stage: TAT is total delivery duration from creation (New) to delivery timestamp.
+ * - If the order has NOT yet reached the requested stage, display "—".
+ */
+export function getDisplayTat(
+  order?: Order | null,
+  activeTab?: LegacyTabId | OrderStatus | string
+): string {
+  if (!order) return "0m";
+
+  const tab = activeTab || "All";
+
+  // Resolve stageArrivedAt — use existing data, or compute from date+time for mock orders
+  const arrivedAt = order.stageArrivedAt && Object.keys(order.stageArrivedAt).length > 0
+    ? order.stageArrivedAt
+    : computeStageArrivedAt(order);
+
+  // 1. ALL, Unfulfilled, New -> TAT from arrival in New tab (order creation)
+  if (tab === "All" || tab === "Unfulfilled" || tab === "New") {
+    if (arrivedAt["New"]) {
+      return formatTatFromTimestamp(arrivedAt["New"]);
+    }
+    // Final fallback: use date+time field to compute live
+    return order.tat || "0m";
+  }
+
+  // 2. Stage-specific tabs
+  const stageKeyMap: Record<string, string> = {
+    "Picking": "Picking",
+    "Picked": "Picked",
+    "Packing": "Packing",
+    "Ready to Assign": "Ready to Assign",
+    "In Delivery": "Driver Accepted",
+    "Driver Accepted": "Driver Accepted",
+    "Started": "Started",
+    "Delivered": "Delivered",
+    "Installation": "Installation",
+    "Delivery Failed": "Delivery Failed",
+    "Flags & Exceptions": "Flagged",
+    "Flagged": "Flagged",
+    "Cancelled": "Cancelled",
+    "Returns & Replacements": "Replacement",
+    "Replacement": "Replacement",
+    "Exchange": "Exchange",
+    "PayLater": "PayLater",
+  };
+
+  const key = stageKeyMap[tab] || tab;
+
+  // 3. Delivered stage special handling: Total TAT from order arrival (New) to Delivered timestamp
+  if (key === "Delivered") {
+    if (arrivedAt["Delivered"] && arrivedAt["New"]) {
+      return formatTatBetweenTimestamps(arrivedAt["New"], arrivedAt["Delivered"]);
+    }
+    if (order.status === "Delivered" && arrivedAt["New"]) {
+      return formatTatFromTimestamp(arrivedAt["New"]);
+    }
+    return "—";
+  }
+
+  // Check if order has a timestamp for this stage
+  if (arrivedAt[key]) {
+    return formatTatFromTimestamp(arrivedAt[key]);
+  }
+
+  // Order has NOT reached this stage — show "—"
+  return "—";
 }
 
 export type OrderSlaStatus = "on_track" | "at_risk" | "breached";

@@ -1,7 +1,7 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
+import { getDisplayTat, tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Package, Truck, User, Eye } from "lucide-react";
 import { CrewTag } from "./CrewTag";
@@ -140,7 +140,8 @@ export function OrderTableRow({
     }
   };
 
-  const tatClass = tatColorClass(order.tat);
+  const displayTat = getDisplayTat(order, activeTab);
+  const tatClass = tatColorClass(displayTat);
   const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
   const isPacking = activeTab === "Packing";
   const colSpanCount = isPacking
@@ -180,7 +181,7 @@ export function OrderTableRow({
 
         {/* TAT */}
         <td className="py-3 pr-3 align-middle">
-          <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>{order.tat}</span>
+          <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>{displayTat}</span>
         </td>
 
         {/* Date & Time */}
@@ -436,7 +437,7 @@ export function OrderTableRow({
                 </div>
                 <div className="mt-2 font-medium">{order.city}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Turnaround: <span className="font-medium text-foreground">{order.tat}</span>
+                  Turnaround: <span className="font-medium text-foreground">{displayTat}</span>
                 </div>
               </div>
             </div>

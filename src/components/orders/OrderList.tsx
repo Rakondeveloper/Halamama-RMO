@@ -13,6 +13,7 @@ import {
   matchesSearch,
   LEGACY_TABS,
   parseTatHours,
+  getDisplayTat,
   type LegacyTabId,
   type Order,
   type EnrichedOrder,
@@ -119,7 +120,7 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
     }
 
     if (activeTab === "Cancelled") {
-      result = [...result].sort((a, b) => parseTatHours(b.tat) - parseTatHours(a.tat));
+      result = [...result].sort((a, b) => parseTatHours(getDisplayTat(b, activeTab)) - parseTatHours(getDisplayTat(a, activeTab)));
     }
     
     return result;
@@ -139,8 +140,8 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
           valA = a.customer.name;
           valB = b.customer.name;
         } else if (sortColumn === "tat") {
-          valA = parseTatHours(a.tat);
-          valB = parseTatHours(b.tat);
+          valA = parseTatHours(getDisplayTat(a, activeTab));
+          valB = parseTatHours(getDisplayTat(b, activeTab));
         } else if (sortColumn === "total") {
           valA = a.total;
           valB = b.total;

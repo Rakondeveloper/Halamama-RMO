@@ -65,6 +65,7 @@ export interface ERPNextSalesOrder {
   custom_latitude?: number;
   custom_longitude?: number;
   custom_tags?: string;
+  custom_stage_arrived_at?: string | Record<string, string>;
 }
 
 /** Raw Sales Order Item from ERPNext */
@@ -209,6 +210,11 @@ export function mapErpNextToOrder(raw: ERPNextSalesOrder): Order {
     tags: raw.custom_tags ? raw.custom_tags.split(",").map(t => t.trim()) : [],
     deliveryDate,
     zone: raw.custom_zone || "",
+    stageArrivedAt: raw.custom_stage_arrived_at
+      ? (typeof raw.custom_stage_arrived_at === "string"
+          ? JSON.parse(raw.custom_stage_arrived_at)
+          : raw.custom_stage_arrived_at)
+      : undefined,
   };
 }
 

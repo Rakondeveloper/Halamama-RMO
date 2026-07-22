@@ -3,11 +3,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   getOrderItemsCount,
   parseTatHours,
+  getDisplayTat,
   statusDotClass,
   getPickerDisplayName,
   getUserDisplayName,
   type Order,
   type OrderStatus,
+  type LegacyTabId,
 } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import {
@@ -71,6 +73,7 @@ function statusBadgeClasses(status: OrderStatus): string {
 
 /* ─── TAT badge background/ring for urgency ───────────────────────────────── */
 function tatBadgeClasses(tat: string): string {
+  if (tat === "—") return "bg-muted text-muted-foreground ring-border";
   const hours = parseTatHours(tat);
   if (hours <= 2) return "bg-emerald-50 text-emerald-700 ring-emerald-200/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/30";
   if (hours <= 12) return "bg-amber-50 text-amber-700 ring-amber-200/50 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/30";
@@ -95,6 +98,7 @@ export function OrderCard({
   onToggleExpand,
   onViewOrder,
   onAction,
+  activeTab,
 }: {
   order: Order;
   selected: boolean;
@@ -103,9 +107,11 @@ export function OrderCard({
   onToggleExpand: () => void;
   onViewOrder: (order: Order) => void;
   onAction?: (action: "zone" | "driver" | "print" | "giftPrint" | "export", order: Order) => void;
+  activeTab?: LegacyTabId;
 }) {
   const itemCount = getOrderItemsCount(order);
   const isFulfilled = order.status === "Delivered";
+  const displayTat = getDisplayTat(order, activeTab);
 
   return (
     <article
@@ -162,11 +168,11 @@ export function OrderCard({
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset",
-              tatBadgeClasses(order.tat),
+              tatBadgeClasses(displayTat),
             )}
           >
             <Timer className="h-3 w-3 shrink-0" aria-hidden />
-            {order.tat} TAT
+            {displayTat} TAT
           </span>
           <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/40 dark:bg-muted/30">
             <Globe className="h-3 w-3 shrink-0 opacity-60" aria-hidden />

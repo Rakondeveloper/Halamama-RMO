@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Order } from "@/lib/orders";
-import { tatColorClass, statusDotClass, getUserDisplayName } from "@/lib/orders";
+import { tatColorClass, getDisplayTat, statusDotClass, getUserDisplayName } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import {
   Eye,
@@ -201,7 +201,8 @@ export function FlagsTable({
         </thead>
         <tbody>
           {activeOrders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Flags & Exceptions");
+            const tatClass = tatColorClass(displayTat);
             const flagInfo = deriveFlagInfo(order);
             const cfg = priorityConfig[flagInfo.priority];
 
@@ -223,7 +224,7 @@ export function FlagsTable({
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">

@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, statusDotClass, type Order, type OrderReturn } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, statusDotClass, type Order, type OrderReturn } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,8 @@ export function ReturnsTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Returns & Replacements");
+            const tatClass = tatColorClass(displayTat);
             const badgeInfo = getReturnBadgeStatus(order);
             return (
               <tr
@@ -95,7 +96,7 @@ export function ReturnsTable({
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">

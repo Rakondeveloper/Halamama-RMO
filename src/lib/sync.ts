@@ -12,7 +12,7 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import { MOCK_ORDERS, type Order, getMockOrderTotal, getMockOrderItems } from "@/lib/orders";
+import { MOCK_ORDERS, type Order, getMockOrderTotal, getMockOrderItems, computeStageArrivedAt, getTodayDateString } from "@/lib/orders";
 import { isDemoMode } from "@/lib/api/config";
 import { getProducts } from "./products";
 import { getVendorLocations } from "./vendor-locations";
@@ -83,6 +83,7 @@ function seedIfNeeded(): void {
     const enriched = MOCK_ORDERS.map((o) => ({
       ...o,
       itemsList: getMockOrderItems(o.id, o.items),
+      stageArrivedAt: computeStageArrivedAt(o),
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } else {
@@ -134,6 +135,16 @@ function seedIfNeeded(): void {
               updated = true;
             }
           }
+        }
+      }
+
+      // Backfill stageArrivedAt & update dates to today for stored orders
+      const todayStr = getTodayDateString();
+      for (const order of parsed) {
+        if (order.date !== todayStr || !order.stageArrivedAt || Object.keys(order.stageArrivedAt).length === 0) {
+          order.date = todayStr;
+          order.stageArrivedAt = computeStageArrivedAt(order);
+          updated = true;
         }
       }
 
@@ -223,7 +234,12 @@ export function updateSharedOrder(
   const orders = getSharedOrders();
   const order = orders.find((o) => o.id === orderId);
   if (!order) return undefined;
+  const prevStatus = order.status;
   updater(order);
+  if (order.status !== prevStatus) {
+    if (!order.stageArrivedAt) order.stageArrivedAt = {};
+    order.stageArrivedAt[order.status] = new Date().toISOString();
+  }
   saveSharedOrders(orders);
   return order;
 }

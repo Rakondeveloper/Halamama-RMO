@@ -66,7 +66,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { StatusBadge } from "@/components/orders/StatusBadge";
 import { PrintInvoiceDialog } from "../PrintInvoiceDialog";
 import { useState } from "react";
-import { getOrderItemsCount, type EnrichedOrder, isUnpaidPayLaterOrder, getUserDisplayName } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, type EnrichedOrder, isUnpaidPayLaterOrder, getUserDisplayName } from "@/lib/orders";
 import { useQueryClient } from "@tanstack/react-query";
 import { orderKeys } from "@/hooks/useOrders";
 import { ordersApi } from "@/lib/api";
@@ -493,9 +493,9 @@ export function OrderHeader({ order }: { order: EnrichedOrder }) {
         />
         <SummaryItem
           label="TAT"
-          value={order.tat}
+          value={getDisplayTat(order, order.status)}
           Icon={Timer}
-          tooltip="Turnaround Time: Time elapsed since order creation."
+          tooltip="Turnaround Time: Time elapsed since order reached this status."
         />
       </div>
 

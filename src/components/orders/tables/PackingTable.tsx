@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, getUserDisplayName, type Order } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, getUserDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye, Package } from "lucide-react";
 import { CrewTag } from "../CrewTag";
@@ -50,7 +50,8 @@ export function PackingTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Packing");
+            const tatClass = tatColorClass(displayTat);
             return (
               <tr
                 key={order.id}
@@ -63,7 +64,7 @@ export function PackingTable({
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">
