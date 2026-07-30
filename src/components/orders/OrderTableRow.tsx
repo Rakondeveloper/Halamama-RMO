@@ -21,12 +21,10 @@ function CommentCell({ order }: { order: Order }) {
 
   const [isOpen, setIsOpen] = useState(false);
   const [commentText, setCommentText] = useState(currentComment);
-  const [selectedAdmin, setSelectedAdmin] = useState(currentAdmin);
 
   const handleOpenChange = (open: boolean) => {
     if (open) {
       setCommentText(currentComment);
-      setSelectedAdmin(currentAdmin);
     }
     setIsOpen(open);
   };
@@ -40,7 +38,7 @@ function CommentCell({ order }: { order: Order }) {
       {
         orderId: order.id,
         commentText: commentText.trim(),
-        adminName: selectedAdmin,
+        adminName: currentAdmin,
       },
       {
         onSuccess: () => {
@@ -100,6 +98,8 @@ function CommentCell({ order }: { order: Order }) {
 
       <PopoverContent
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDownCapture={(e) => e.stopPropagation()}
         className="w-80 p-4 space-y-3 shadow-xl rounded-xl border border-border bg-card"
         align="start"
       >
@@ -120,8 +120,10 @@ function CommentCell({ order }: { order: Order }) {
           <Textarea
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyDownCapture={(e) => e.stopPropagation()}
             placeholder="Type operations comment here..."
-            className="text-xs min-h-[70px] resize-none rounded-lg"
+            className="text-xs min-h-[80px] resize-none rounded-lg focus-visible:ring-1"
           />
         </div>
 
@@ -130,18 +132,10 @@ function CommentCell({ order }: { order: Order }) {
             <UserCheck className="h-3 w-3 text-muted-foreground" />
             <span>Operation Admin</span>
           </label>
-          <Select value={selectedAdmin} onValueChange={setSelectedAdmin}>
-            <SelectTrigger className="h-8 text-xs rounded-lg">
-              <SelectValue placeholder="Select admin" />
-            </SelectTrigger>
-            <SelectContent className="rounded-lg">
-              <SelectItem value="Suhail (Ops Admin)">Suhail (Ops Admin)</SelectItem>
-              <SelectItem value="Omar (Supervisor)">Omar (Supervisor)</SelectItem>
-              <SelectItem value="Rania (Coordinator)">Rania (Coordinator)</SelectItem>
-              <SelectItem value="Fatima (Dispatch)">Fatima (Dispatch)</SelectItem>
-              <SelectItem value="Operations Team">Operations Team</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2 text-xs font-medium text-foreground bg-muted/60 px-3 py-2 rounded-lg border border-border/50">
+            <UserCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>{currentAdmin}</span>
+          </div>
         </div>
 
         {order.commentMeta && (
@@ -315,14 +309,14 @@ export function OrderTableRow({
 }) {
   const handleRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
     const el = e.target as HTMLElement;
-    if (el.closest("button, [role='checkbox'], a, input, [data-row-ignore]")) return;
+    if (el.closest("button, [role='checkbox'], a, input, textarea, select, [data-row-ignore], [data-radix-popper-content-wrapper]")) return;
     onToggleExpand();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTableRowElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       const t = e.target as HTMLElement;
-      if (t.closest("button, [role='checkbox']")) return;
+      if (t.closest("button, [role='checkbox'], textarea, input, select, [data-radix-popper-content-wrapper]")) return;
       e.preventDefault();
       onToggleExpand();
     }
