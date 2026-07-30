@@ -161,11 +161,29 @@ function seedIfNeeded(): void {
 
 /** Get all orders from the shared store. */
 export function getSharedOrders(): Order[] {
+  const adjustDateTime = (order: Order): Order => {
+    if (order.tat) {
+      const match = order.tat.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
+      if (match && (match[1] || match[2])) {
+        const h = parseInt(match[1] || "0", 10);
+        const m = parseInt(match[2] || "0", 10);
+        const actualDate = new Date(Date.now() - (h * 60 * 60 * 1000 + m * 60 * 1000));
+        return {
+          ...order,
+          date: actualDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          time: actualDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+        };
+      }
+    }
+    return order;
+  };
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const orders = JSON.parse(raw) as Order[];
-      return orders.map((order) => {
+      return orders.map((o) => {
+        const order = adjustDateTime(o);
         const total = getMockOrderTotal(order.id, order.items, order.payment);
         const rawItems = order.itemsList || getMockOrderItems(order.id, order.items);
         return {
@@ -179,14 +197,26 @@ export function getSharedOrders(): Order[] {
                 total,
                 balance: total - (order.payment.totalPaid ?? 0),
               }
-            : undefined,
+            : {
+                method: (order as any).paymentMethod || "Cash",
+                total,
+                totalPaid: total - ((order as any).paymentBalance ?? 0),
+                cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+                card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+                subtotal: total - 10,
+                discount: 0,
+                shipping: 10,
+                balance: ((order as any).paymentBalance ?? 0),
+                shippingMethod: "Standard Delivery",
+              },
         };
       });
     }
   } catch (e) {
     console.warn("[Sync] Failed to read shared orders:", e);
   }
-  return MOCK_ORDERS.map((order) => {
+  return MOCK_ORDERS.map((o) => {
+    const order = adjustDateTime(o);
     const total = getMockOrderTotal(order.id, order.items, order.payment);
     return {
       ...order,
@@ -199,7 +229,18 @@ export function getSharedOrders(): Order[] {
             total,
             balance: total - (order.payment.totalPaid ?? 0),
           }
-        : undefined,
+        : {
+            method: (order as any).paymentMethod || "Cash",
+            total,
+            totalPaid: total - ((order as any).paymentBalance ?? 0),
+            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            subtotal: total - 10,
+            discount: 0,
+            shipping: 10,
+            balance: ((order as any).paymentBalance ?? 0),
+            shippingMethod: "Standard Delivery",
+          },
     };
   });
 }
@@ -219,7 +260,18 @@ function saveSharedOrders(orders: Order[]): void {
             total,
             balance: total - (order.payment.totalPaid ?? 0),
           }
-        : undefined,
+        : {
+            method: (order as any).paymentMethod || "Cash",
+            total,
+            totalPaid: total - ((order as any).paymentBalance ?? 0),
+            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            subtotal: total - 10,
+            discount: 0,
+            shipping: 10,
+            balance: ((order as any).paymentBalance ?? 0),
+            shippingMethod: "Standard Delivery",
+          },
     };
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));

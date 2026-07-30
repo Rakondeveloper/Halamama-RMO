@@ -53,13 +53,13 @@ function CalendarsContent() {
   const [locations] = useState<InstallLocation[]>(() => getLocations());
   const [teams] = useState<InstallTeam[]>(() => getTeams());
   const [appointments, setAppointments] = useState<Appointment[]>(() => getAppointments());
-  const [locationId, setLocationId] = useState<string>(locations[0]?.id ?? "");
-  const [teamId, setTeamId] = useState<string>("");
+  const [locationId, setLocationId] = useState<string>("all");
+  const [teamId, setTeamId] = useState<string>("all");
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
 
   const filteredTeams = useMemo(
-    () => teams.filter((t) => t.locationId === locationId),
+    () => locationId && locationId !== "all" ? teams.filter((t) => t.locationId === locationId) : teams,
     [teams, locationId],
   );
 
@@ -75,13 +75,27 @@ function CalendarsContent() {
   }, [weekStart]);
 
   const weekAppts = useMemo(() => {
-    if (!teamId) return [];
     const weekEnd = weekDays[6].dateStr;
     const weekStartStr = weekDays[0].dateStr;
-    return appointments.filter(
-      (a) => a.teamId === teamId && a.scheduledDate >= weekStartStr && a.scheduledDate <= weekEnd,
-    );
-  }, [appointments, teamId, weekDays]);
+    return appointments.filter((a) => {
+      // Date range filter
+      const inWeek = a.scheduledDate >= weekStartStr && a.scheduledDate <= weekEnd;
+      if (!inWeek) return false;
+
+      // Location filter: if selected and not "all", filter teams belonging to this location
+      if (locationId && locationId !== "all") {
+        const team = teams.find((t) => t.id === a.teamId);
+        if (team?.locationId !== locationId) return false;
+      }
+
+      // Team filter
+      if (teamId && teamId !== "all") {
+        if (a.teamId !== teamId) return false;
+      }
+
+      return true;
+    });
+  }, [appointments, locationId, teamId, weekDays, teams]);
 
   const apptsByDay = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
@@ -125,11 +139,12 @@ function CalendarsContent() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          <Select value={locationId} onValueChange={(v) => { setLocationId(v); setTeamId(""); }}>
+          <Select value={locationId} onValueChange={(v) => { setLocationId(v); setTeamId("all"); }}>
             <SelectTrigger className="h-9 w-44 rounded-xl text-sm cursor-pointer">
-              <SelectValue placeholder="Select location" />
+              <SelectValue placeholder="All Locations" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
+              <SelectItem value="all">All Locations</SelectItem>
               {locations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -137,11 +152,12 @@ function CalendarsContent() {
 
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <Select value={teamId} onValueChange={setTeamId} disabled={!locationId}>
+          <Select value={teamId} onValueChange={setTeamId}>
             <SelectTrigger className="h-9 w-40 rounded-xl text-sm cursor-pointer">
-              <SelectValue placeholder={locationId ? "Select team" : "Pick location"} />
+              <SelectValue placeholder="All Teams" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
+              <SelectItem value="all">All Teams</SelectItem>
               {filteredTeams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -195,73 +211,74 @@ function CalendarsContent() {
       )}
 
       {/* Calendar Grid */}
-      {!teamId ? (
-        <div className="rounded-2xl border border-dashed border-border p-16 text-center">
-          <CalendarDays className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Select a location and team to view their calendar.</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
-          {/* Day Headers */}
-          <div className="grid grid-cols-7 border-b border-border bg-muted/30">
-            {weekDays.map(({ date, dateStr, label }) => {
-              const isToday = dateStr === todayStr;
-              return (
-                <div key={dateStr} className={cn("p-3 text-center border-r border-border last:border-r-0", isToday && "bg-primary/5")}>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-                  <div className={cn(
-                    "text-lg font-bold mt-0.5 mx-auto w-8 h-8 rounded-full grid place-items-center",
-                    isToday ? "bg-primary text-primary-foreground" : "text-foreground",
-                  )}>
-                    {date.getDate()}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">{apptsByDay[dateStr]?.length || 0} appts</div>
+      <div className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 border-b border-border bg-muted/30">
+          {weekDays.map(({ date, dateStr, label }) => {
+            const isToday = dateStr === todayStr;
+            return (
+              <div key={dateStr} className={cn("p-3 text-center border-r border-border last:border-r-0", isToday && "bg-primary/5")}>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+                <div className={cn(
+                  "text-lg font-bold mt-0.5 mx-auto w-8 h-8 rounded-full grid place-items-center",
+                  isToday ? "bg-primary text-primary-foreground" : "text-foreground",
+                )}>
+                  {date.getDate()}
                 </div>
-              );
-            })}
-          </div>
+                <div className="text-[10px] text-muted-foreground">{apptsByDay[dateStr]?.length || 0} appts</div>
+              </div>
+            );
+          })}
+        </div>
 
-          {/* Appointment Cells */}
-          <div className="grid grid-cols-7 min-h-[400px]">
-            {weekDays.map(({ dateStr }) => {
-              const dayAppts = apptsByDay[dateStr] ?? [];
-              const isToday = dateStr === todayStr;
-              return (
-                <div key={dateStr} className={cn("border-r border-border last:border-r-0 p-2 space-y-1.5 min-h-[200px]", isToday && "bg-primary/3")}>
-                  {dayAppts.length === 0 ? (
-                    <div className="h-full flex items-center justify-center">
-                      <div className="border border-dashed border-border/60 rounded-lg w-full h-12 flex items-center justify-center text-[10px] text-muted-foreground/40">
-                        Available
-                      </div>
+        {/* Appointment Cells */}
+        <div className="grid grid-cols-7 min-h-[400px]">
+          {weekDays.map(({ dateStr }) => {
+            const dayAppts = apptsByDay[dateStr] ?? [];
+            const isToday = dateStr === todayStr;
+            return (
+              <div key={dateStr} className={cn("border-r border-border last:border-r-0 p-2 space-y-1.5 min-h-[200px]", isToday && "bg-primary/3")}>
+                {dayAppts.length === 0 ? (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="border border-dashed border-border/60 rounded-lg w-full h-12 flex items-center justify-center text-[10px] text-muted-foreground/40">
+                      Available
                     </div>
-                  ) : (
-                    dayAppts.map((appt) => {
-                      const cfg = statusConfig[appt.status];
-                      return (
-                        <button
-                          key={appt.id}
-                          onClick={() => setSelectedAppt(appt)}
-                          className={cn(
-                            "w-full text-left rounded-lg border p-2 text-[11px] leading-snug transition-all hover:shadow-sm cursor-pointer",
-                            cfg.color,
+                  </div>
+                ) : (
+                  dayAppts.map((appt) => {
+                    const cfg = statusConfig[appt.status];
+                    const team = teams.find((t) => t.id === appt.teamId);
+                    return (
+                      <button
+                        key={appt.id}
+                        onClick={() => setSelectedAppt(appt)}
+                        className={cn(
+                          "w-full text-left rounded-lg border p-2 text-[11px] leading-snug transition-all hover:shadow-sm cursor-pointer",
+                          cfg.color,
+                        )}
+                      >
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
+                          <span className="font-bold">{appt.scheduledTime}</span>
+                        </div>
+                        <div className="font-semibold truncate">{appt.customerName}</div>
+                        <div className="text-[10px] opacity-70 font-mono flex items-center justify-between">
+                          <span>#{appt.orderId.replace("HM", "")}</span>
+                          {(!teamId || teamId === "all") && (
+                            <span className="font-sans font-medium text-[9px] text-muted-foreground/80 bg-muted/60 px-1 rounded truncate max-w-[65px] border border-border/40">
+                              {team?.name ?? "—"}
+                            </span>
                           )}
-                        >
-                          <div className="flex items-center gap-1 mb-0.5">
-                            <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
-                            <span className="font-bold">{appt.scheduledTime}</span>
-                          </div>
-                          <div className="font-semibold truncate">{appt.customerName}</div>
-                          <div className="text-[10px] opacity-70 font-mono">#{appt.orderId.replace("HM", "")}</div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Appointment Detail Panel */}
       {selectedAppt && (

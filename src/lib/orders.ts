@@ -1249,6 +1249,7 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
         : (baseOrder.payment.balance ?? 0)),
     } : {
       method: ((baseOrder as any).paymentMethod as any) || "Cash",
+      total: calculatedTotal,
       totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance ?? 0),
       cash: ((baseOrder as any).paymentMethod || "Cash") === "Cash" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
       card: ((baseOrder as any).paymentMethod || "Cash") === "Card" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
@@ -2274,26 +2275,50 @@ export function computeStageArrivedAt(order: {
   date: string;
   time: string;
   status: OrderStatus;
+  tat?: string;
 }): Record<string, string> {
   // Parse the order's creation date+time
   const dateStr = order.date; // e.g. "Jul 9" or "May 27"
   const timeStr = order.time; // e.g. "14:30"
   const year = new Date().getFullYear();
-  const creationDate = new Date(`${dateStr} ${year} ${timeStr}`);
-  if (isNaN(creationDate.getTime())) {
+  let creationDate = new Date(`${dateStr} ${year} ${timeStr}`);
+  
+  // If we have a tat string, we can back-calculate the creation date (ideal for mock data)
+  if (order.tat) {
+    const match = order.tat.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
+    if (match && (match[1] || match[2])) {
+      const h = parseInt(match[1] || "0", 10);
+      const m = parseInt(match[2] || "0", 10);
+      creationDate = new Date(Date.now() - (h * 60 * 60 * 1000 + m * 60 * 1000));
+    }
+  } else if (isNaN(creationDate.getTime()) || creationDate.getTime() > Date.now()) {
     // Fallback: use current time minus a default offset
-    return { New: new Date(Date.now() - 60 * 60 * 1000).toISOString() };
+    creationDate = new Date(Date.now() - 60 * 60 * 1000);
   }
 
   const result: Record<string, string> = {};
   const statusIdx = STAGE_ORDER.indexOf(order.status);
+  
+  // Determine elapsed time from creation until now
+  const totalElapsedMin = Math.max(1, (Date.now() - creationDate.getTime()) / (60 * 1000));
+
+  // Determine the default offset for the current status (or fallback)
+  const maxDefaultOffset = STAGE_OFFSETS[order.status] ?? 120;
+  
+  // Proportional scale factor
+  // If total elapsed time is less than the stage's default offset, scale all offsets down
+  // so the current stage is reached at 90% of the elapsed time.
+  const scaleFactor = totalElapsedMin < maxDefaultOffset 
+    ? (totalElapsedMin * 0.9) / maxDefaultOffset 
+    : 1.0;
 
   // For statuses in the main lifecycle
   if (statusIdx >= 0) {
     for (let i = 0; i <= statusIdx; i++) {
       const stage = STAGE_ORDER[i];
       const offset = STAGE_OFFSETS[stage] ?? 0;
-      result[stage] = new Date(creationDate.getTime() + offset * 60 * 1000).toISOString();
+      const adjustedOffset = offset * scaleFactor;
+      result[stage] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
     }
   } else {
     // For non-lifecycle statuses (Cancelled, Delivery Failed, Flagged, Replacement, Exchange, Installation)
@@ -2309,12 +2334,14 @@ export function computeStageArrivedAt(order: {
 
     for (const stage of passedStages) {
       const offset = STAGE_OFFSETS[stage] ?? 0;
-      result[stage] = new Date(creationDate.getTime() + offset * 60 * 1000).toISOString();
+      const adjustedOffset = offset * scaleFactor;
+      result[stage] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
     }
 
     // Add the current status itself
     const currentOffset = STAGE_OFFSETS[order.status] ?? 120;
-    result[order.status] = new Date(creationDate.getTime() + currentOffset * 60 * 1000).toISOString();
+    const adjustedOffset = currentOffset * scaleFactor;
+    result[order.status] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
   }
 
   return result;
@@ -2339,20 +2366,24 @@ export function getDisplayTat(
   const tab = activeTab || "All";
 
   // Resolve stageArrivedAt — use existing data, or compute from date+time for mock orders
-  const arrivedAt = order.stageArrivedAt && Object.keys(order.stageArrivedAt).length > 0
+  let arrivedAt = order.stageArrivedAt && Object.keys(order.stageArrivedAt).length > 0
     ? order.stageArrivedAt
     : computeStageArrivedAt(order);
 
   // 1. ALL, Unfulfilled, New -> TAT from arrival in New tab (order creation)
   if (tab === "All" || tab === "Unfulfilled" || tab === "New") {
     if (arrivedAt["New"]) {
+      const newTime = new Date(arrivedAt["New"]).getTime();
+      if (isNaN(newTime) || newTime > Date.now()) {
+        arrivedAt = computeStageArrivedAt(order);
+      }
       return formatTatFromTimestamp(arrivedAt["New"]);
     }
     // Final fallback: use date+time field to compute live
     return order.tat || "0m";
   }
 
-  // 2. Stage-specific tabs
+  // 2. Stage-specific tabs (mapping only actual workflow stages)
   const stageKeyMap: Record<string, string> = {
     "Picking": "Picking",
     "Picked": "Picked",
@@ -2364,16 +2395,26 @@ export function getDisplayTat(
     "Delivered": "Delivered",
     "Installation": "Installation",
     "Delivery Failed": "Delivery Failed",
-    "Flags & Exceptions": "Flagged",
     "Flagged": "Flagged",
-    "Cancelled": "Cancelled",
-    "Returns & Replacements": "Replacement",
     "Replacement": "Replacement",
     "Exchange": "Exchange",
-    "PayLater": "PayLater",
   };
 
-  const key = stageKeyMap[tab] || tab;
+  let key = stageKeyMap[tab];
+
+  // If the tab is a virtual filter tab (like Flags & Exceptions, PayLater, etc.)
+  if (!key) {
+    // Fall back to the order's actual status stage key
+    key = stageKeyMap[order.status] || order.status;
+  }
+
+  // Validate the stage arrival timestamp: if it's in the future or invalid, re-compute
+  if (arrivedAt[key]) {
+    const stageTime = new Date(arrivedAt[key]).getTime();
+    if (isNaN(stageTime) || stageTime > Date.now()) {
+      arrivedAt = computeStageArrivedAt(order);
+    }
+  }
 
   // 3. Delivered stage special handling: Total TAT from order arrival (New) to Delivered timestamp
   if (key === "Delivered") {

@@ -38,229 +38,252 @@ export function InvoicePrintLayout({
 }) {
   return (
     <>
-      {orders.map((order, index) => (
-        <div key={order.id} className={index > 0 ? "mt-16 print:mt-0 print:break-before-page" : ""}>
-          {/* Top section */}
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0 mb-6">
-            {/* Logo Area */}
-            <div className="flex items-center">
-              <img src="https://halamama.com/cdn/shop/files/halamama_green.svg" alt="Halamama Logo" className="h-10" />
-            </div>
+      {orders.map((order, index) => {
+        const payment = order.payment || {
+          subtotal: order.total || 0,
+          discount: 0,
+          shipping: 0,
+          total: order.total || 0,
+          totalPaid: order.total || 0,
+          balance: 0,
+        };
+        const subtotal = payment.subtotal ?? order.total ?? 0;
+        const discount = payment.discount ?? 0;
+        const shipping = payment.shipping ?? 0;
+        const total = payment.total ?? order.total ?? 0;
+        const totalPaid = payment.totalPaid ?? total;
+        const balance = payment.balance ?? 0;
+        const itemsList = order.itemsList || [];
+        const customerName = order.customer?.name || "Customer";
+        const customerPhone = order.customer?.phone || "";
+        const shippingLine1 = order.shippingAddress?.line1 || "";
+        const shippingLine2 = order.shippingAddress?.line2 || "";
+        const shippingCity = order.shippingAddress?.city || "";
+        const shippingCountry = order.shippingAddress?.country || "";
 
-            {/* Invoice Meta */}
-            <div className="text-left sm:text-right text-sm">
-              <div className="font-bold text-lg mb-2">
-                {isGift
-                  ? <>Gift Receipt No. {order.id} <span dir="rtl">:إيصال هدية</span></>
-                  : <>Invoice No. {order.id} :فاتورة</>
-                }
+        return (
+          <div key={order.id} className={index > 0 ? "mt-16 print:mt-0 print:break-before-page" : ""}>
+            {/* Top section */}
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0 mb-6">
+              {/* Logo Area */}
+              <div className="flex items-center">
+                <img src="https://halamama.com/cdn/shop/files/halamama_green.svg" alt="Halamama Logo" className="h-10" />
               </div>
-              <div className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-slate-600">
-                <div className="text-left sm:text-right">Order Date</div>
-                <div className="text-left font-medium">{order.date}</div>
-                <div className="text-left sm:text-right">Order Time</div>
-                <div className="text-left font-medium">{order.time}</div>
-                <div className="text-left sm:text-right">Delivery Date</div>
-                <div className="text-left font-medium">{getDeliveryDate(order)}</div>
-                {!isGift && (
-                  <>
-                    <div className="text-left sm:text-right">Payment</div>
-                    <div className="text-left font-medium capitalize">{order.payment.balance > 0 ? "voided" : "paid"}</div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
 
-          <hr className="border-slate-200 mb-6" />
-
-          {/* Addresses */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mb-6 text-sm">
-            <div>
-              <h3 className="font-bold mb-3">Billing Address <span className="font-normal" dir="rtl">عنوان الفاتورة</span></h3>
-              <div className="font-bold mb-2">{order.customer.name}</div>
-              <div className="text-slate-600 leading-relaxed">
-                {order.shippingAddress.line1}<br />
-                {order.shippingAddress.line2}<br />
-                {order.shippingAddress.city}, {order.shippingAddress.country}<br />
-                <div className="mt-2">{order.customer.phone}</div>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-bold mb-3">Shipping Address <span className="font-normal" dir="rtl">عنوان الشحن</span></h3>
-              <div className="font-bold mb-2">{order.customer.name}</div>
-              <div className="text-slate-600 leading-relaxed">
-                {order.shippingAddress.line1}<br />
-                {order.shippingAddress.line2}<br />
-                {order.shippingAddress.city}, {order.shippingAddress.country}<br />
-                <div className="mt-2">{order.customer.phone}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <div className="mb-6 overflow-x-auto w-full -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-thin">
-            <table className="w-full text-sm border-collapse min-w-[600px] sm:min-w-0">
-              <thead>
-                <tr className="border border-slate-200 bg-slate-50 text-left">
-                  <th className="p-3 font-bold border-r border-slate-200">
-                    <div>Item Description</div>
-                    <div className="text-xs font-normal text-slate-500 mt-1">العنصر</div>
-                  </th>
-                  <th className="p-3 font-bold border-r border-slate-200 w-24 text-center">
-                    <div>Qty</div>
-                    <div className="text-xs font-normal text-slate-500 mt-1">الكمية</div>
-                  </th>
+              {/* Invoice Meta */}
+              <div className="text-left sm:text-right text-sm">
+                <div className="font-bold text-lg mb-2">
+                  {isGift
+                    ? <>Gift Receipt No. {order.id} <span dir="rtl">:إيصال هدية</span></>
+                    : <>Invoice No. {order.id} :فاتورة</>
+                  }
+                </div>
+                <div className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-slate-600">
+                  <div className="text-left sm:text-right">Order Date</div>
+                  <div className="text-left font-medium">{order.date}</div>
+                  <div className="text-left sm:text-right">Order Time</div>
+                  <div className="text-left font-medium">{order.time}</div>
+                  <div className="text-left sm:text-right">Delivery Date</div>
+                  <div className="text-left font-medium">{getDeliveryDate(order)}</div>
                   {!isGift && (
-                    <th className="p-3 font-bold border-r border-slate-200 w-32 text-right">
-                      <div>Unit Price</div>
-                      <div className="text-xs font-normal text-slate-500 mt-1">سعر الوحدة</div>
-                    </th>
+                    <>
+                      <div className="text-left sm:text-right">Payment</div>
+                      <div className="text-left font-medium capitalize">{balance > 0 ? "voided" : "paid"}</div>
+                    </>
                   )}
-                  <th className="p-3 font-bold border-r border-slate-200 w-16 text-center">
-                    <div>FL</div>
-                    <div className="text-xs font-normal text-slate-500 mt-1">فل.</div>
-                  </th>
-                  {!isGift && (
-                    <th className="p-3 font-bold w-32 text-right">
-                      <div>Total</div>
-                      <div className="text-xs font-normal text-slate-500 mt-1">الإجمالي</div>
+                </div>
+              </div>
+            </div>
+
+            <hr className="border-slate-200 mb-6" />
+
+            {/* Addresses */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mb-6 text-sm">
+              <div>
+                <h3 className="font-bold mb-3">Billing Address <span className="font-normal" dir="rtl">عنوان الفاتورة</span></h3>
+                <div className="font-bold mb-2">{customerName}</div>
+                <div className="text-slate-600 leading-relaxed">
+                  {shippingLine1}{shippingLine1 && <br />}
+                  {shippingLine2}{shippingLine2 && <br />}
+                  {shippingCity}{shippingCity && shippingCountry ? ", " : ""}{shippingCountry}<br />
+                  <div className="mt-2">{customerPhone}</div>
+                </div>
+              </div>
+              <div>
+                <h3 className="font-bold mb-3">Shipping Address <span className="font-normal" dir="rtl">عنوان الشحن</span></h3>
+                <div className="font-bold mb-2">{customerName}</div>
+                <div className="text-slate-600 leading-relaxed">
+                  {shippingLine1}{shippingLine1 && <br />}
+                  {shippingLine2}{shippingLine2 && <br />}
+                  {shippingCity}{shippingCity && shippingCountry ? ", " : ""}{shippingCountry}<br />
+                  <div className="mt-2">{customerPhone}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div className="mb-6 overflow-x-auto w-full -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-thin">
+              <table className="w-full text-sm border-collapse min-w-[600px] sm:min-w-0">
+                <thead>
+                  <tr className="border border-slate-200 bg-slate-50 text-left">
+                    <th className="p-3 font-bold border-r border-slate-200">
+                      <div>Item Description</div>
+                      <div className="text-xs font-normal text-slate-500 mt-1">العنصر</div>
                     </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {order.itemsList.map((item) => {
-                  const arabicName = getArabicName(item.name);
-                  return (
-                    <tr key={item.id} className="border-b border-slate-200">
-                      <td className="p-3 border-r border-slate-200">
-                        <div className="flex items-center gap-3">
-                          {item.image && (
-                            <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded shadow-sm border border-slate-100 flex-shrink-0 print:hidden" />
-                          )}
-                          <div className="space-y-0.5">
-                            <div className="font-semibold text-slate-800 text-sm">{item.name}</div>
-                            {arabicName && (
-                              <div className="text-xs text-slate-700 font-medium" dir="rtl">{arabicName}</div>
-                            )}
-                            <div className="text-[11px] text-slate-400">
-                              {item.sku || "N/A"}{item.barcode ? ` | ${item.barcode}` : ""}
-                            </div>
-                            {item.bin && (
-                              <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/50">
-                                LOC: {item.bin}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 border-r border-slate-200 text-center font-medium">
-                        {isGift ? `x${item.qty}` : item.qty}
-                      </td>
-                      {!isGift && (
-                        <td className="p-3 border-r border-slate-200 text-right">QAR {item.price.toFixed(2)}</td>
-                      )}
-                      <td className="p-3 border-r border-slate-200 text-center font-medium">
-                        {getFLCode(item.fc)}
-                      </td>
-                      {!isGift && (
-                        <td className="p-3 text-right">QAR {(item.price * item.qty).toFixed(2)}</td>
-                      )}
-                    </tr>
-                  );
-                })}
-                {order.itemsList.length === 0 && (
-                  <tr className="border-b border-slate-200">
-                    <td colSpan={isGift ? 3 : 5} className="p-4 text-center text-slate-500">No items found.</td>
+                    <th className="p-3 font-bold border-r border-slate-200 w-24 text-center">
+                      <div>Qty</div>
+                      <div className="text-xs font-normal text-slate-500 mt-1">الكمية</div>
+                    </th>
+                    {!isGift && (
+                      <th className="p-3 font-bold border-r border-slate-200 w-32 text-right">
+                        <div>Unit Price</div>
+                        <div className="text-xs font-normal text-slate-500 mt-1">سعر الوحدة</div>
+                      </th>
+                    )}
+                    <th className="p-3 font-bold border-r border-slate-200 w-16 text-center">
+                      <div>FL</div>
+                      <div className="text-xs font-normal text-slate-500 mt-1">فل.</div>
+                    </th>
+                    {!isGift && (
+                      <th className="p-3 font-bold w-32 text-right">
+                        <div>Total</div>
+                        <div className="text-xs font-normal text-slate-500 mt-1">الإجمالي</div>
+                      </th>
+                    )}
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Footer Area */}
-          {isGift ? (
-            /* Gift Invoice Footer: Centered QR code and centered contact details */
-            <div className="space-y-6 mt-8">
-              <div className="flex flex-col items-center justify-center">
-                <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white">
-                  <QrCode className="w-16 h-16 text-slate-800" />
-                </div>
-                <div className="text-xs mt-2 text-slate-600 text-center space-y-1">
-                  <div>Scan for Return, Refund & Exchange Policy</div>
-                  <div dir="rtl">امسح للاطلاع على سياسة الإرجاع والاسترداد والتبديل</div>
-                </div>
-              </div>
-               <div className="text-center text-xs text-slate-500 space-y-1 mb-8">
-                <div>If you have any questions, please send an email to contactus@halamama.com or contact us at +974 6658 3338</div>
-                <div>إذا كانت لديكم أي أسئلة، يرجى إرسال بريد إلكتروني إلى contactus@halamama.com أو التواصل معنا على الرقم 3338 6658 974+.</div>
-              </div>
+                </thead>
+                <tbody>
+                  {itemsList.map((item) => {
+                    const arabicName = getArabicName(item.name);
+                    const itemPrice = item.price ?? 0;
+                    const itemQty = item.qty ?? 1;
+                    return (
+                      <tr key={item.id} className="border-b border-slate-200">
+                        <td className="p-3 border-r border-slate-200">
+                          <div className="flex items-center gap-3">
+                            {item.image && (
+                              <img src={item.image} alt={item.name} className="h-12 w-12 object-cover rounded shadow-sm border border-slate-100 flex-shrink-0 print:hidden" />
+                            )}
+                            <div className="space-y-0.5">
+                              <div className="font-semibold text-slate-800 text-sm">{item.name}</div>
+                              {arabicName && (
+                                <div className="text-xs text-slate-700 font-medium" dir="rtl">{arabicName}</div>
+                              )}
+                              <div className="text-[11px] text-slate-400">
+                                {item.sku || "N/A"}{item.barcode ? ` | ${item.barcode}` : ""}
+                              </div>
+                              {item.bin && (
+                                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200/50">
+                                  LOC: {item.bin}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 border-r border-slate-200 text-center font-medium">
+                          {isGift ? `x${itemQty}` : itemQty}
+                        </td>
+                        {!isGift && (
+                          <td className="p-3 border-r border-slate-200 text-right">QAR {itemPrice.toFixed(2)}</td>
+                        )}
+                        <td className="p-3 border-r border-slate-200 text-center font-medium">
+                          {getFLCode(item.fc)}
+                        </td>
+                        {!isGift && (
+                          <td className="p-3 text-right">QAR {(itemPrice * itemQty).toFixed(2)}</td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                  {itemsList.length === 0 && (
+                    <tr className="border-b border-slate-200">
+                      <td colSpan={isGift ? 3 : 5} className="p-4 text-center text-slate-500">No items found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          ) : (
 
-            /* Normal Invoice Footer: Totals first, then QR code, then support text */
-
-
-            <>
-              {/* Totals - Aligned to the right */}
-              <div className="flex justify-end mb-8">
-                <div className="border border-slate-200 rounded w-full sm:w-[300px] print:w-[300px]">
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Subtotal <span className="text-xs ml-1">(المجموع الفرعي)</span></div>
-                    <div className="text-right font-medium">QAR {order.payment.subtotal.toFixed(2)}</div>
+            {/* Footer Area */}
+            {isGift ? (
+              /* Gift Invoice Footer: Centered QR code and centered contact details */
+              <div className="space-y-6 mt-8">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white">
+                    <QrCode className="w-16 h-16 text-slate-800" />
                   </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Discount <span className="text-xs ml-1">(الخصم)</span></div>
-                    <div className="text-right font-medium">-QAR {order.payment.discount.toFixed(2)}</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Shipping <span className="text-xs ml-1">(الشحن)</span></div>
-                    <div className="text-right font-medium">QAR {order.payment.shipping.toFixed(2)}</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm font-bold bg-slate-50">
-                    <div>Grand Total <span className="text-xs font-normal ml-1">(المجموع الكلي)</span></div>
-                    <div className="text-right">QAR {order.payment.total.toFixed(2)}</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Paid by Customer<br/><span className="text-xs">(المدفوع من قبل العميل)</span></div>
-                    <div className="text-right font-medium mt-auto">QAR {order.payment.totalPaid.toFixed(2)}</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Refunded <span className="text-xs ml-1">(تم رد المبلغ)</span></div>
-                    <div className="text-right font-medium">-QAR 0.00</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
-                    <div className="text-slate-600">Outstanding Amount<br/><span className="text-xs">(المبلغ المستحق)</span></div>
-                    <div className="text-right font-medium mt-auto">QAR {order.payment.balance.toFixed(2)}</div>
-                  </div>
-                  <div className="grid grid-cols-2 p-2 text-sm">
-                    <div className="text-slate-600">Balance <span className="text-xs ml-1">(توازن)</span></div>
-                    <div className="text-right font-medium">QAR 0.00</div>
+                  <div className="text-xs mt-2 text-slate-600 text-center space-y-1">
+                    <div>Scan for Return, Refund & Exchange Policy</div>
+                    <div dir="rtl">امسح للاطلاع على سياسة الإرجاع والاسترداد والتبديل</div>
                   </div>
                 </div>
-              </div>
-
-              {/* QR Code and Policy - Centered and brought down */}
-              <div className="flex flex-col items-center justify-center mb-8 mt-12 print:break-inside-avoid">
-                <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white shadow-sm">
-                  <QrCode className="w-16 h-16 text-slate-800" />
-                </div>
-                <div className="text-xs mt-3 text-slate-700 text-center space-y-1">
-                  <div className="font-semibold">Scan for Return, Refund & Exchange Policy</div>
-                  <div dir="rtl" className="font-semibold">امسح للاطلاع على سياسة الإرجاع والاسترداد والتبديل</div>
+                <div className="text-center text-xs text-slate-500 space-y-1 mb-8">
+                  <div>If you have any questions, please send an email to contactus@halamama.com or contact us at +974 6658 3338</div>
+                  <div>إذا كانت لديكم أي أسئلة، يرجى إرسال بريد إلكتروني إلى contactus@halamama.com أو التواصل معنا على الرقم 3338 6658 974+.</div>
                 </div>
               </div>
+            ) : (
+              /* Normal Invoice Footer: Totals first, then QR code, then support text */
+              <>
+                {/* Totals - Aligned to the right */}
+                <div className="flex justify-end mb-8">
+                  <div className="border border-slate-200 rounded w-full sm:w-[300px] print:w-[300px]">
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Subtotal <span className="text-xs ml-1">(المجموع الفرعي)</span></div>
+                      <div className="text-right font-medium">QAR {subtotal.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Discount <span className="text-xs ml-1">(الخصم)</span></div>
+                      <div className="text-right font-medium">-QAR {discount.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Shipping <span className="text-xs ml-1">(الشحن)</span></div>
+                      <div className="text-right font-medium">QAR {shipping.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm font-bold bg-slate-50">
+                      <div>Grand Total <span className="text-xs font-normal ml-1">(المجموع الكلي)</span></div>
+                      <div className="text-right">QAR {total.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Paid by Customer<br/><span className="text-xs">(المدفوع من قبل العميل)</span></div>
+                      <div className="text-right font-medium mt-auto">QAR {totalPaid.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Refunded <span className="text-xs ml-1">(تم رد المبلغ)</span></div>
+                      <div className="text-right font-medium">-QAR 0.00</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 border-b border-slate-200 text-sm">
+                      <div className="text-slate-600">Outstanding Amount<br/><span className="text-xs">(المبلغ المستحق)</span></div>
+                      <div className="text-right font-medium mt-auto">QAR {balance.toFixed(2)}</div>
+                    </div>
+                    <div className="grid grid-cols-2 p-2 text-sm">
+                      <div className="text-slate-600">Balance <span className="text-xs ml-1">(توازن)</span></div>
+                      <div className="text-right font-medium">QAR 0.00</div>
+                    </div>
+                  </div>
+                </div>
 
-              {/* Support Text */}
-              <div className="text-center text-xs text-slate-500 space-y-1 mb-8 print:break-inside-avoid">
-                <div>If you have any questions, please send an email to contactus@halamama.com or contact us at +974 6658 3338</div>
-                <div>إذا كانت لديكم أي أسئلة، يرجى إرسال بريد إلكتروني إلى contactus@halamama.com أو التواصل معنا على الرقم 3338 6658 974+.</div>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
+                {/* QR Code and Policy - Centered and brought down */}
+                <div className="flex flex-col items-center justify-center mb-8 mt-12 print:break-inside-avoid">
+                  <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white shadow-sm">
+                    <QrCode className="w-16 h-16 text-slate-800" />
+                  </div>
+                  <div className="text-xs mt-3 text-slate-700 text-center space-y-1">
+                    <div className="font-semibold">Scan for Return, Refund & Exchange Policy</div>
+                    <div dir="rtl" className="font-semibold">امسح للاطلاع على سياسة الإرجاع والاسترداد والتبديل</div>
+                  </div>
+                </div>
+
+                {/* Support Text */}
+                <div className="text-center text-xs text-slate-500 space-y-1 mb-8 print:break-inside-avoid">
+                  <div>If you have any questions, please send an email to contactus@halamama.com or contact us at +974 6658 3338</div>
+                  <div>إذا كانت لديكم أي أسئلة، يرجى إرسال بريد إلكتروني إلى contactus@halamama.com أو التواصل معنا على الرقم 3338 6658 974+.</div>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </>
   );
 }
