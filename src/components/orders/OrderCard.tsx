@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CommentCell } from "./OrderTableRow";
 import {
   getOrderItemsCount,
   parseTatHours,
@@ -247,6 +248,14 @@ export function OrderCard({
               Return ×{order.returns.count}
             </span>
           )}
+        </div>
+
+        {/* ── Comment Section ────────────────────────────────────────────── */}
+        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Comment
+          </div>
+          <CommentCell order={order} />
         </div>
       </div>
 

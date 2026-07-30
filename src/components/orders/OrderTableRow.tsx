@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { CrewTag } from "./CrewTag";
 import { DriverStatusBadge } from "./DriverStatusBadge";
 
-function CommentCell({ order }: { order: Order }) {
+export function CommentCell({ order }: { order: Order }) {
   const updateComment = useUpdateOrderComment();
   const deleteComment = useDeleteOrderComment();
 
@@ -521,11 +521,9 @@ export function OrderTableRow({
         )}
 
         {/* Comment */}
-        {!isPickingOrPicked && !isPacking && (
-          <td className="py-3 pr-3 align-middle">
-            <CommentCell order={order} />
-          </td>
-        )}
+        <td className="py-3 pr-3 align-middle">
+          <CommentCell order={order} />
+        </td>
 
         {/* Dynamic Column: Driver / Picker / Packer */}
         {dynamicCol === "driver" && (
