@@ -157,7 +157,7 @@ export function OrderTable({
               <th className="py-3 pr-3 font-semibold">City</th>
             )}
             {!isPickingOrPicked && !isPacking && (
-              <th className="py-3 pr-3 font-semibold">Coordinator</th>
+              <th className="py-3 pr-3 font-semibold">Comment</th>
             )}
             {dynamicLabel && (
               <th className="py-3 pr-3 font-semibold">{dynamicLabel}</th>

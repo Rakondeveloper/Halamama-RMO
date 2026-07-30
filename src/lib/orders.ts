@@ -168,7 +168,12 @@ export interface Order {
   /** Detailed return/replacement items for this order. */
   returnItems?: OrderReturn[];
   city: string;
-  coordinator: string;
+  coordinator?: string;
+  comment?: string;
+  commentMeta?: {
+    editedBy: string;
+    editedAt: string;
+  };
   driver: string | null;
   driverStatus?: string | null;
   picker: string | null;
@@ -593,7 +598,7 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 16. Driver assigned ────────────────────────────────────────────────────
   if (hasDriver) {
-    const assigner = base.coordinator !== "-" ? base.coordinator : "suhail_halamama";
+    const assigner = base.commentMeta?.editedBy || (base.coordinator && base.coordinator !== "-" ? base.coordinator : "suhail_halamama");
     const driverName = getUserDisplayName(base.driver);
     ev.push({
       id: "tl-drv-assign",

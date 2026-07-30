@@ -221,6 +221,51 @@ export async function assignPacker(
 }
 
 /**
+ * Update or set comment on an order with admin tracking.
+ */
+export async function updateOrderComment(
+  orderId: string,
+  commentText: string,
+  adminName: string,
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      o.comment = commentText.trim();
+      o.commentMeta = {
+        editedBy: adminName || "Suhail (Ops Admin)",
+        editedAt: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      };
+    });
+    broadcastChange();
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_comment: commentText,
+    custom_comment_admin: adminName,
+  });
+}
+
+/**
+ * Delete comment from an order.
+ */
+export async function deleteOrderComment(orderId: string): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      delete o.comment;
+      delete o.commentMeta;
+    });
+    broadcastChange();
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_comment: "",
+    custom_comment_admin: "",
+  });
+}
+
+/**
  * Update driver status for an order.
  */
 export async function updateDriverStatus(
@@ -349,6 +394,8 @@ export const ordersApi = {
   assignDriver,
   assignPicker,
   assignPacker,
+  updateOrderComment,
+  deleteOrderComment,
   updateDriverStatus,
   updatePaymentDetails,
   updateOrderNotes,

@@ -302,6 +302,33 @@ export function deleteSharedOrder(orderId: string): void {
   saveSharedOrders(orders);
 }
 
+/** Update or set comment on an order with admin metadata. */
+export function updateOrderComment(
+  orderId: string,
+  commentText: string,
+  adminName: string,
+): Order | undefined {
+  const updated = updateSharedOrder(orderId, (o) => {
+    o.comment = commentText.trim();
+    o.commentMeta = {
+      editedBy: adminName || "Suhail (Ops Admin)",
+      editedAt: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+  });
+  broadcastChange();
+  return updated;
+}
+
+/** Delete comment from an order. */
+export function deleteOrderComment(orderId: string): Order | undefined {
+  const updated = updateSharedOrder(orderId, (o) => {
+    delete o.comment;
+    delete o.commentMeta;
+  });
+  broadcastChange();
+  return updated;
+}
+
 // ─── Cross-Tab Broadcast ─────────────────────────────────────────────────
 
 /** Signal other tabs/apps that order data has changed. */

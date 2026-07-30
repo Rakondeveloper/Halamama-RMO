@@ -26,7 +26,7 @@ export function SystemSettings() {
     "Status Badge": true,
     "Returns Info": true,
     Zone: false,
-    Coordinator: false,
+    Comment: true,
     Driver: false,
   });
   const [saved, setSaved] = useState(false);

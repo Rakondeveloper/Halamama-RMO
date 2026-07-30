@@ -1,11 +1,199 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDisplayTat, tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight, Package, Truck, User, Eye } from "lucide-react";
+import { ChevronDown, ChevronRight, Package, Truck, User, Eye, MessageSquare, Trash2, Plus, Check, UserCheck } from "lucide-react";
+import { useUpdateOrderComment, useDeleteOrderComment } from "@/hooks/useOrders";
+import { toast } from "sonner";
 import { CrewTag } from "./CrewTag";
 import { DriverStatusBadge } from "./DriverStatusBadge";
+
+function CommentCell({ order }: { order: Order }) {
+  const updateComment = useUpdateOrderComment();
+  const deleteComment = useDeleteOrderComment();
+
+  const currentComment = order.comment || (order.coordinator && order.coordinator !== "-" ? order.coordinator : "");
+  const currentAdmin = order.commentMeta?.editedBy || "Suhail (Ops Admin)";
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [commentText, setCommentText] = useState(currentComment);
+  const [selectedAdmin, setSelectedAdmin] = useState(currentAdmin);
+
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      setCommentText(currentComment);
+      setSelectedAdmin(currentAdmin);
+    }
+    setIsOpen(open);
+  };
+
+  const handleSave = () => {
+    if (!commentText.trim()) {
+      handleDelete();
+      return;
+    }
+    updateComment.mutate(
+      {
+        orderId: order.id,
+        commentText: commentText.trim(),
+        adminName: selectedAdmin,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Comment updated successfully");
+          setIsOpen(false);
+        },
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    deleteComment.mutate(order.id, {
+      onSuccess: () => {
+        toast.success("Comment removed");
+        setCommentText("");
+        setIsOpen(false);
+      },
+    });
+  };
+
+  return (
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "group/cmd text-left flex flex-col justify-center rounded-lg p-1.5 transition-all cursor-pointer hover:bg-accent/60 max-w-[170px]",
+            !currentComment && "border border-dashed border-border/70 hover:border-primary/40 px-2 py-1"
+          )}
+        >
+          {currentComment ? (
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="h-3 w-3 text-primary shrink-0" />
+                <span className="text-xs font-medium text-foreground truncate max-w-[130px]" title={currentComment}>
+                  {currentComment}
+                </span>
+              </div>
+              <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1 truncate">
+                <UserCheck className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                <span className="truncate">
+                  {order.commentMeta?.editedBy ? order.commentMeta.editedBy : "Ops Admin"}
+                </span>
+                {order.commentMeta?.editedAt && (
+                  <span className="opacity-70 text-[9px] shrink-0">• {order.commentMeta.editedAt.split(",")[0]}</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground/70 group-hover/cmd:text-primary transition-colors">
+              <Plus className="h-3 w-3" />
+              <span>Add Comment</span>
+            </div>
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent
+        onClick={(e) => e.stopPropagation()}
+        className="w-80 p-4 space-y-3 shadow-xl rounded-xl border border-border bg-card"
+        align="start"
+      >
+        <div className="flex items-center justify-between border-b border-border pb-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Order Comment</h4>
+          </div>
+          <span className="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            #{order.id}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+            <span>Comment Text</span>
+          </label>
+          <Textarea
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder="Type operations comment here..."
+            className="text-xs min-h-[70px] resize-none rounded-lg"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+            <UserCheck className="h-3 w-3 text-muted-foreground" />
+            <span>Operation Admin</span>
+          </label>
+          <Select value={selectedAdmin} onValueChange={setSelectedAdmin}>
+            <SelectTrigger className="h-8 text-xs rounded-lg">
+              <SelectValue placeholder="Select admin" />
+            </SelectTrigger>
+            <SelectContent className="rounded-lg">
+              <SelectItem value="Suhail (Ops Admin)">Suhail (Ops Admin)</SelectItem>
+              <SelectItem value="Omar (Supervisor)">Omar (Supervisor)</SelectItem>
+              <SelectItem value="Rania (Coordinator)">Rania (Coordinator)</SelectItem>
+              <SelectItem value="Fatima (Dispatch)">Fatima (Dispatch)</SelectItem>
+              <SelectItem value="Operations Team">Operations Team</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {order.commentMeta && (
+          <div className="text-[10px] bg-muted/40 rounded-lg p-2 text-muted-foreground space-y-0.5">
+            <div><span className="font-semibold">Last edited by:</span> {order.commentMeta.editedBy}</div>
+            <div><span className="font-semibold">Time:</span> {order.commentMeta.editedAt}</div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1 border-t border-border">
+          {currentComment ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteComment.isPending}
+              className="h-8 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive px-2"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Delete
+            </Button>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-8 text-xs rounded-lg px-3"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSave}
+              disabled={updateComment.isPending}
+              className="h-8 text-xs rounded-lg px-3 gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Check className="h-3.5 w-3.5" />
+              Save
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function ShopifyBadge({ status }: { status: Order["shopify"] }) {
   return (
@@ -338,10 +526,10 @@ export function OrderTableRow({
           </td>
         )}
 
-        {/* Coordinator */}
+        {/* Comment */}
         {!isPickingOrPicked && !isPacking && (
           <td className="py-3 pr-3 align-middle">
-            <span className="text-xs text-muted-foreground">{order.coordinator}</span>
+            <CommentCell order={order} />
           </td>
         )}
 
