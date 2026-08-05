@@ -234,6 +234,7 @@ export function mapErpNextToOrderItem(raw: ERPNextSalesOrderItem): OrderItemType
     fcName: raw.warehouse || "Default Warehouse",
     bin: raw.custom_bin || "—",
     status: (raw.custom_status as "Prepared" | "Accepted" | "Allocated" | "Pending") || "Pending",
+    serialNumber: (raw as any).custom_serial_no || (raw as any).serial_no || (raw.custom_barcode ? `SN-${raw.custom_barcode}` : `SN-${raw.item_code}-${(raw as any).idx || 1}`),
   };
 }
 

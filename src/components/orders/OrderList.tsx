@@ -331,6 +331,7 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
                   }
                   onViewOrder={goToOrder}
                   onAction={handleCardAction}
+                  activeTab={activeTab}
                 />
               ))}
             </div>
@@ -351,6 +352,7 @@ export function OrderList({ initialTab }: { initialTab?: LegacyTabId }) {
                     }
                     onViewOrder={goToOrder}
                     onAction={handleCardAction}
+                    activeTab={activeTab}
                   />
                 ))}
               </div>

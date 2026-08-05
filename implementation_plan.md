@@ -1,44 +1,53 @@
-# Fixing MIS Benchmarks Refresh Button
+# Implementation Plan - Remove Channel and Returns from the New Tab on Order Page
 
-This plan resolves the issue where the Refresh button on the MIS Benchmarks page does not fetch new data, especially in live mode, due to the component bypassing React Query's fetch cache and relying entirely on a static local storage reader.
+This plan outlines the changes required to remove the **Channel** and **Returns** columns from the **New** tab view on the Order management page (`OrderTable` and `OrderCard` components).
 
 ## User Review Required
 
 > [!NOTE]
-> - The `MisDataProvider` interface will be extended to accept an optional `orders` list.
-> - The `MisBenchmarksPage` component will use the `useOrders` hook to load/refresh the orders list.
-> - A spinning loader animation will be added to the Refresh button to show when refetching is in progress.
+> The **Channel** and **Returns** columns will remain visible on other applicable tabs (e.g., *All*, *Unfulfilled*, *In Delivery*, etc.), and will only be hidden when the active tab is **New** (`activeTab === "New"`).
 
 ## Proposed Changes
 
-### MIS Module Types
+### Order Table & Card Components
 
-#### [MODIFY] [mis-types.ts](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/lib/mis/mis-types.ts)
-- Update `MisDataProvider` interface methods (`getOrderMetrics`, `getSummary`, `getDelayedOrders`) to accept an optional `orders?: Order[]` parameter.
+#### [MODIFY] [OrderTable.tsx](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/components/orders/OrderTable.tsx)
+- Update table header conditions:
+  - Add `activeTab !== "New"` to the `Channel` `<th>` header render condition.
+  - Add `activeTab !== "New"` to the `Returns` `<th>` header render condition.
 
-### MIS Data Service
+#### [MODIFY] [OrderTableRow.tsx](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/components/orders/OrderTableRow.tsx)
+- Update table row cell conditions:
+  - Add `activeTab !== "New"` to the `Channel` `<td>` cell render condition.
+  - Add `activeTab !== "New"` to the `Returns` `<td>` cell render condition.
+- Update `colSpanCount` calculation:
+  - Account for `activeTab === "New"` by subtracting 2 from `colSpanCount` so expanded details span the updated table width (11 columns).
 
-#### [MODIFY] [mis-data-service.ts](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/lib/mis/mis-data-service.ts)
-- Modify `getFilteredOrders` to accept `customOrders?: Order[]`. If provided, use it instead of calling `getSharedOrders()`.
-- Update `MockMisDataProvider` implementation to accept and pass through the optional `orders` parameter to `getFilteredOrders`.
-- Update `getDelayedOrders` to search for original orders in the passed-in list if available.
+#### [MODIFY] [OrderCard.tsx](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/components/orders/OrderCard.tsx)
+- Conditionally render the Channel badge only when `activeTab !== "New"`.
 
-### MIS Benchmarks Page Route
+#### [MODIFY] [OrderList.tsx](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/components/orders/OrderList.tsx)
+- Pass `activeTab={activeTab}` prop to the `<OrderCard>` components rendered in grid and mobile list views.
 
-#### [MODIFY] [mis-benchmarks.tsx](file:///c:/Ansil/HalaMama%20Dashboard/hub-stream-flow-main/src/routes/mis-benchmarks.tsx)
-- Import `useOrders` from `@/hooks/useOrders` and `cn` if not imported (it is imported).
-- In `MisBenchmarksPage`, fetch orders with `const { data: allOrders = [], refetch, isRefetching } = useOrders();`.
-- Pass `allOrders` to `misDataProvider.getSummary` and `misDataProvider.getDelayedOrders`.
-- Update `handleRefresh` to call `await refetch()`.
-- Add `animate-spin` class to the `RefreshCw` icon when `isRefetching` is true and disable the button.
+---
+
+## Backend Developer Notes (API & Data Model Impact)
+
+1. **Data Model Structure**:
+   - The underlying `Order` type definition in `src/lib/orders.ts` (`order.channel` and `order.returns`/`order.returnItems`) remains completely unchanged.
+   - The API mapping in `src/lib/api/mappers.ts` will continue to map `custom_channel` and return status, preserving full data availability for detail dialogs/views.
+
+2. **UI & State Structure**:
+   - Tab filtering logic in `matchesLegacyTab` continues to operate on order status `"New"`.
+   - Table column layout count dynamically reduces from 13 columns to 11 columns specifically when `activeTab === "New"`.
 
 ---
 
 ## Verification Plan
 
-### Automated / Build Verification
-- Verify that the application builds and compiles successfully.
-
 ### Manual Verification
-1. Navigate to the **MIS Benchmarks** page.
-2. Click the **Refresh** button and verify that the icon spins during the fetch and the page displays updated statistics.
+1. Open the dashboard in browser.
+2. Navigate to the **Orders** page and select the **New** tab.
+3. Verify that the table header no longer displays **CHANNEL** or **RETURNS** columns.
+4. Verify table row alignment and check that expanding an order row spans full width cleanly without horizontal layout offset.
+5. Switch to other tabs (e.g. **All**, **Unfulfilled**) to verify **CHANNEL** and **RETURNS** columns are still present where expected.

@@ -227,6 +227,10 @@ export interface OrderItemType {
   installationDriver?: string | null;
   /** Location ID for vendor location items */
   locationId?: string;
+  /** Product / Hardware Serial Number (e.g., SN-9350764006338) */
+  serialNumber?: string;
+  /** Individual unit serial numbers when qty > 1 */
+  unitSerialNumbers?: string[];
 }
 
 export type ReturnStatus = "pending" | "picked up" | "completed";
@@ -1209,11 +1213,14 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
     } catch { }
   }
 
-  return itemsList.map((item) => {
-    if (cancelledItemIds.includes(item.id)) {
-      return { ...item, status: "Pending" as const };
-    }
-    return item as OrderItemType;
+  return itemsList.map((item, index) => {
+    const serialNumber = item.serialNumber || (item.barcode ? `SN-${item.barcode}` : `SN-${id}-${index + 1}`);
+    const status = cancelledItemIds.includes(item.id) ? ("Pending" as const) : item.status;
+    return {
+      ...item,
+      serialNumber,
+      status,
+    } as OrderItemType;
   });
 }
 

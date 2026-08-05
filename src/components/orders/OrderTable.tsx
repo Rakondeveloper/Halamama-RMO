@@ -122,6 +122,7 @@ export function OrderTable({
                 </span>
               </button>
             </th>
+            <th className="py-3 pr-3 font-semibold">Delivery Date</th>
             <th className="py-3 pr-3 font-semibold">
               <button
                 onClick={() => onSort?.("customer")}
@@ -133,11 +134,11 @@ export function OrderTable({
                 </span>
               </button>
             </th>
-            {!isPickingOrPicked && !isPacking && (
+            {!isPickingOrPicked && !isPacking && activeTab !== "New" && activeTab !== "All" && (
               <th className="py-3 pr-3 font-semibold">Channel</th>
             )}
             <th className="py-3 pr-3 font-semibold">Items</th>
-            {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && (
+            {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && activeTab !== "New" && activeTab !== "All" && (
               <th className="py-3 pr-3 font-semibold">Returns</th>
             )}
             {isPickingOrPicked && (
@@ -159,6 +160,9 @@ export function OrderTable({
             <th className="py-3 pr-3 font-semibold">Comment</th>
             {dynamicLabel && (
               <th className="py-3 pr-3 font-semibold">{dynamicLabel}</th>
+            )}
+            {activeTab === "Ready to Assign" && (
+              <th className="py-3 pr-3 font-semibold">Bags</th>
             )}
             {!isPacking && (
               <th className="py-3 pr-3 font-semibold">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { DeliveryDateCell } from "../DeliveryDateCell";
 
 /* ── Flag types & helpers ────────────────────────────────────────────────── */
 
@@ -191,6 +192,7 @@ export function FlagsTable({
             <th className="py-3 pl-4 pr-3 font-semibold">Order</th>
             <th className="py-3 pr-3 font-semibold">TAT</th>
             <th className="py-3 pr-3 font-semibold">Date & Time</th>
+            <th className="py-3 pr-3 font-semibold">Delivery Date</th>
             <th className="py-3 pr-3 font-semibold">Customer</th>
             <th className="py-3 pr-3 font-semibold">Flag / Exception</th>
             <th className="py-3 pr-3 font-semibold">Priority</th>
@@ -231,6 +233,9 @@ export function FlagsTable({
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span className="text-foreground font-medium">📅 {order.date} | {order.time}</span>
                   </div>
+                </td>
+                <td className="whitespace-nowrap py-3 pr-3 align-middle">
+                  <DeliveryDateCell order={order} />
                 </td>
                 <td className="max-w-[200px] py-3 pr-3 align-middle">
                   <div className="min-w-0">
@@ -282,7 +287,7 @@ export function FlagsTable({
           })}
           {activeOrders.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-16 text-center">
+              <td colSpan={10} className="py-16 text-center">
                 <div className="flex flex-col items-center gap-3">
                   <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 grid place-items-center">
                     <CheckCircle2 className="h-6 w-6 text-emerald-500" />

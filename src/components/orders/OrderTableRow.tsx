@@ -11,6 +11,7 @@ import { useUpdateOrderComment, useDeleteOrderComment } from "@/hooks/useOrders"
 import { toast } from "sonner";
 import { CrewTag } from "./CrewTag";
 import { DriverStatusBadge } from "./DriverStatusBadge";
+import { DeliveryDateCell } from "./DeliveryDateCell";
 
 export function CommentCell({ order }: { order: Order }) {
   const updateComment = useUpdateOrderComment();
@@ -326,9 +327,10 @@ export function OrderTableRow({
   const tatClass = tatColorClass(displayTat);
   const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
   const isPacking = activeTab === "Packing";
+  const isNewOrAllTab = activeTab === "New" || activeTab === "All";
   const colSpanCount = isPacking
-    ? 10
-    : 13 + (dynamicCol ? 1 : 0) + (isPickingOrPicked ? -2 : 0) + (activeTab === "Ready to Assign" ? -1 : 0);
+    ? 11
+    : 14 + (dynamicCol ? 1 : 0) + (isPickingOrPicked ? -2 : 0) + (isNewOrAllTab ? -2 : 0);
 
   return (
     <>
@@ -356,7 +358,13 @@ export function OrderTableRow({
 
         {/* Order ID */}
         <td className="py-3 pr-3 align-middle">
-          <span className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer">
+          <span
+            className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewOrder(order);
+            }}
+          >
             {order.id}
           </span>
         </td>
@@ -375,6 +383,11 @@ export function OrderTableRow({
           </div>
         </td>
 
+        {/* Delivery Date */}
+        <td className="whitespace-nowrap py-3 pr-3 align-middle">
+          <DeliveryDateCell order={order} />
+        </td>
+
         {/* Customer */}
         <td className="max-w-[220px] py-3 pr-3 align-middle">
           <div className="min-w-0">
@@ -391,7 +404,7 @@ export function OrderTableRow({
         </td>
 
         {/* Channel */}
-        {!isPickingOrPicked && !isPacking && (
+        {!isPickingOrPicked && !isPacking && activeTab !== "New" && activeTab !== "All" && (
           <td className="py-3 pr-3 align-middle">
             <span className="text-xs font-medium text-muted-foreground">{order.channel}</span>
           </td>
@@ -403,7 +416,7 @@ export function OrderTableRow({
         </td>
 
         {/* Returns */}
-        {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && (
+        {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && activeTab !== "New" && activeTab !== "All" && (
           <td className="py-3 pr-3 align-middle">
             {(order.returns || (order.returnItems && order.returnItems.length > 0)) ? (
               <ReturnBadge order={order} />
@@ -539,6 +552,18 @@ export function OrderTableRow({
         {dynamicCol === "packer" && (
           <td className="py-3 pr-3 align-middle">
             <PackerCell order={order} />
+          </td>
+        )}
+        {activeTab === "Ready to Assign" && (
+          <td className="py-3 pr-3 align-middle">
+            {order.bags && order.bags > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                <Package className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                {order.bags} {order.bags === 1 ? "Bag" : "Bags"}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
           </td>
         )}
 

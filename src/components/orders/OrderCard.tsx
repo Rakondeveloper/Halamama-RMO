@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CommentCell } from "./OrderTableRow";
+import { DeliveryDateCell } from "./DeliveryDateCell";
 import {
   getOrderItemsCount,
   parseTatHours,
@@ -138,7 +139,13 @@ export function OrderCard({
               aria-label={`Select order ${order.id}`}
               className="shrink-0"
             />
-            <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
+            <span
+              className="font-mono text-[15px] font-bold tracking-tight text-primary hover:underline cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewOrder(order);
+              }}
+            >
               #{order.id}
             </span>
           </div>
@@ -164,6 +171,12 @@ export function OrderCard({
           </span>
         </div>
 
+        {/* ── Delivery Date ────────────────────────────────────────────────── */}
+        <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">Delivery:</span>
+          <DeliveryDateCell order={order} compact />
+        </div>
+
         {/* ── TAT + Channel row ──────────────────────────────────────────── */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
@@ -175,10 +188,12 @@ export function OrderCard({
             <Timer className="h-3 w-3 shrink-0" aria-hidden />
             {displayTat} TAT
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/40 dark:bg-muted/30">
-            <Globe className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
-            {channelLabel(order.channel)}
-          </span>
+          {activeTab !== "New" && activeTab !== "All" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/40 dark:bg-muted/30">
+              <Globe className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
+              {channelLabel(order.channel)}
+            </span>
+          )}
         </div>
 
         {/* ── Customer block ─────────────────────────────────────────────── */}
@@ -239,6 +254,14 @@ export function OrderCard({
             <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-[3px] text-[10px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-200/50 dark:bg-teal-950/40 dark:text-teal-300 dark:ring-teal-800/30">
               <Package className="h-2.5 w-2.5" aria-hidden />
               Packer: {getUserDisplayName(order.packer)}
+            </span>
+          )}
+
+          {/* Bags */}
+          {order.bags !== undefined && order.bags !== null && order.bags > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-[3px] text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200/50 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/30">
+              <Package className="h-2.5 w-2.5" aria-hidden />
+              {order.bags} {order.bags === 1 ? "Bag" : "Bags"}
             </span>
           )}
 

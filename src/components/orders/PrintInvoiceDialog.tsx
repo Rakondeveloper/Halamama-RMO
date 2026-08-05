@@ -1,6 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { QrCode } from "lucide-react";
 import { getDeliveryDate, type EnrichedOrder } from "@/lib/orders";
 
 /** Map fulfillment center code to short display label */
@@ -53,6 +52,8 @@ export function InvoicePrintLayout({
         const total = payment.total ?? order.total ?? 0;
         const totalPaid = payment.totalPaid ?? total;
         const balance = payment.balance ?? 0;
+        const paymentMethod = payment.method || (order as any).paymentMethod || "Cash";
+        const paymentStatus = balance > 0 ? (totalPaid > 0 ? "Partially Paid" : "Voided") : "Paid";
         const itemsList = order.itemsList || [];
         const customerName = order.customer?.name || "Customer";
         const customerPhone = order.customer?.phone || "";
@@ -87,8 +88,10 @@ export function InvoicePrintLayout({
                   <div className="text-left font-medium">{getDeliveryDate(order)}</div>
                   {!isGift && (
                     <>
-                      <div className="text-left sm:text-right">Payment</div>
-                      <div className="text-left font-medium capitalize">{balance > 0 ? "voided" : "paid"}</div>
+                      <div className="text-left sm:text-right">Payment Method</div>
+                      <div className="text-left font-medium capitalize">{paymentMethod}</div>
+                      <div className="text-left sm:text-right">Payment Status</div>
+                      <div className="text-left font-medium capitalize">{paymentStatus}</div>
                     </>
                   )}
                 </div>
@@ -210,7 +213,7 @@ export function InvoicePrintLayout({
               <div className="space-y-6 mt-8">
                 <div className="flex flex-col items-center justify-center">
                   <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white">
-                    <QrCode className="w-16 h-16 text-slate-800" />
+                    <img src="https://app.routemyorder.com/qr%20halamama.jpeg" alt="QR Code" className="w-20 h-20 object-contain rounded" />
                   </div>
                   <div className="text-xs mt-2 text-slate-600 text-center space-y-1">
                     <div>Scan for Return, Refund & Exchange Policy</div>
@@ -266,7 +269,7 @@ export function InvoicePrintLayout({
                 {/* QR Code and Policy - Centered and brought down */}
                 <div className="flex flex-col items-center justify-center mb-8 mt-12 print:break-inside-avoid">
                   <div className="p-2 border border-slate-200 rounded-lg inline-block bg-white shadow-sm">
-                    <QrCode className="w-16 h-16 text-slate-800" />
+                    <img src="https://app.routemyorder.com/qr%20halamama.jpeg" alt="QR Code" className="w-20 h-20 object-contain rounded" />
                   </div>
                   <div className="text-xs mt-3 text-slate-700 text-center space-y-1">
                     <div className="font-semibold">Scan for Return, Refund & Exchange Policy</div>

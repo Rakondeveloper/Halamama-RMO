@@ -87,7 +87,7 @@ export function CreateReturnDialog({
             <div className="space-y-3">
               <Label className="text-base font-semibold">Select Items</Label>
               <div className="max-h-[240px] overflow-y-auto space-y-2 rounded-md border border-border bg-muted/10 p-2">
-                {order.itemsList.map((item) => (
+                {order.itemsList.map((item, idx) => (
                   <label
                     key={item.id}
                     className={cn(
@@ -101,8 +101,15 @@ export function CreateReturnDialog({
                       className="mt-0.5"
                     />
                     <div className="flex-1 space-y-1 leading-none">
-                      <p className="text-sm font-medium leading-none text-foreground">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.sku}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center justify-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary border border-primary/20">
+                          #{idx + 1}
+                        </span>
+                        <p className="text-sm font-medium leading-none text-foreground">{item.name}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground pt-0.5">
+                        SKU: {item.sku} {item.serialNumber ? `• S/N: ${item.serialNumber}` : ""}
+                      </p>
                     </div>
                     <div className="text-sm text-muted-foreground whitespace-nowrap">
                       Qty: {item.qty}

@@ -52,6 +52,11 @@ const LOCATION_INFO: Record<
 export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
   const fcs = Array.from(new Set(order.itemsList.map((item) => item.fc)));
 
+  // Map each item ID to its global 1-based sequential item index in the order
+  const itemIndexMap = new Map<string, number>(
+    order.itemsList.map((item, idx) => [item.id, idx + 1])
+  );
+
   // Subscribe to scheduled installations store for reactivity
   const scheduled = useSyncExternalStore(subscribe, getSnapshot);
 
@@ -151,13 +156,20 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
               <div className="divide-y divide-border">
                 {items.map((item) => {
                   const itemIsScheduled = isItemScheduled(order.id, item.sku);
+                  const itemIndex = itemIndexMap.get(item.id) ?? 1;
 
                   return (
                     <article
                       key={item.id}
-                      className="grid gap-4 p-4 transition-colors hover:bg-muted/10 sm:grid-cols-[72px_1fr_auto] sm:p-5"
+                      className="grid gap-4 p-4 transition-colors hover:bg-muted/10 sm:grid-cols-[auto_72px_1fr_auto] sm:items-center sm:p-5"
                     >
-                      <div className="h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted/30 sm:h-[72px] sm:w-[72px]">
+                      {/* Serial Number Badge (in front of photo, shown only once) */}
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white shadow-xs dark:bg-slate-100 dark:text-slate-950 shrink-0 self-center">
+                        #{itemIndex}
+                      </div>
+
+                      {/* Product Thumbnail */}
+                      <div className="h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted/30 sm:h-[72px] sm:w-[72px] shrink-0">
                         <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                       </div>
 
@@ -175,6 +187,14 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                           {item.barcode && (
                             <p className="text-xs text-muted-foreground">
                               Barcode: {item.barcode}
+                            </p>
+                          )}
+                          {item.serialNumber && (
+                            <p className="text-xs text-muted-foreground font-mono flex items-center gap-1.5 mt-0.5">
+                              <span>Serial No:</span>
+                              <span className="font-semibold text-foreground bg-muted/80 px-1.5 py-0.5 rounded border border-border text-[11px] select-all">
+                                {item.serialNumber}
+                              </span>
                             </p>
                           )}
                         </div>
