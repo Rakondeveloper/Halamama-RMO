@@ -210,7 +210,7 @@ export interface OrderItemType {
   fc: string;
   fcName: string;
   bin: string;
-  status: "Prepared" | "Accepted" | "Allocated" | "Pending";
+  status: "Prepared" | "Accepted" | "Allocated" | "Pending" | "Picked";
   /**
    * Fulfillment type for this item:
    * - FC: standard fulfillment center item (normal delivery flow)
@@ -761,8 +761,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
   return ev;
 }
 
-/** Get mock order items list dynamically based on order ID and item count. */
-export function getMockOrderItems(id: string, totalItems: number): OrderItemType[] {
+/** Get mock order items list dynamically based on order ID, item count, order status, and picking status. */
+export function getMockOrderItems(
+  id: string,
+  totalItems: number,
+  orderStatus?: string,
+  pickingStatus?: string
+): OrderItemType[] {
   let itemsList: OrderItemType[] = [];
 
   if (id === "HM99005") {
@@ -1213,9 +1218,31 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
     } catch { }
   }
 
+  // Check if order status implies fully picked or parse pickingStatus count
+  const isPostPickedStage = orderStatus && ["Picked", "Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(orderStatus);
+  
+  let targetPickedCount = -1;
+  if (isPostPickedStage) {
+    targetPickedCount = itemsList.length;
+  } else if (pickingStatus) {
+    const match = pickingStatus.match(/^(\d+)\/(\d+)/);
+    if (match) {
+      targetPickedCount = parseInt(match[1], 10);
+    }
+  }
+
   return itemsList.map((item, index) => {
     const serialNumber = item.serialNumber || (item.barcode ? `SN-${item.barcode}` : `SN-${id}-${index + 1}`);
-    const status = cancelledItemIds.includes(item.id) ? ("Pending" as const) : item.status;
+    let status = item.status;
+
+    if (cancelledItemIds.includes(item.id)) {
+      status = "Pending" as const;
+    } else if (targetPickedCount >= itemsList.length) {
+      status = "Prepared" as const;
+    } else if (targetPickedCount >= 0) {
+      status = index < targetPickedCount ? ("Prepared" as const) : ("Allocated" as const);
+    }
+
     return {
       ...item,
       serialNumber,
@@ -1225,8 +1252,8 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
 }
 
 /** Get mock order total dynamically based on its items and payment information. */
-export function getMockOrderTotal(id: string, totalItems: number, payment?: any): number {
-  const itemsList = getMockOrderItems(id, totalItems);
+export function getMockOrderTotal(id: string, totalItems: number, payment?: any, orderStatus?: string, pickingStatus?: string): number {
+  const itemsList = getMockOrderItems(id, totalItems, orderStatus, pickingStatus);
   const subtotal = itemsList.reduce((sum, item) => sum + item.price * item.qty, 0);
   const discount = payment?.discount ?? 0;
   const shipping = payment?.shipping ?? 0;
@@ -1238,8 +1265,8 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
   const baseOrder = MOCK_ORDERS.find((o) => o.id === id);
   if (!baseOrder) return undefined;
 
-  const itemsList = getMockOrderItems(id, baseOrder.items);
-  const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment);
+  const itemsList = getMockOrderItems(id, baseOrder.items, baseOrder.status, baseOrder.pickingStatus);
+  const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment, baseOrder.status, baseOrder.pickingStatus);
 
   return {
     ...baseOrder,

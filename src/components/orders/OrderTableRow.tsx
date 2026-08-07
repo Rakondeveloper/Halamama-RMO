@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { CrewTag } from "./CrewTag";
 import { DriverStatusBadge } from "./DriverStatusBadge";
 import { DeliveryDateCell } from "./DeliveryDateCell";
+import { StatusBadge } from "./StatusBadge";
 
 export function CommentCell({ order }: { order: Order }) {
   const updateComment = useUpdateOrderComment();
@@ -289,6 +290,68 @@ function PackerCell({ order }: { order: Order }) {
   );
 }
 
+function getActiveCrewForStage(order: Order): {
+  type: "picker" | "packer" | "driver" | null;
+  name: string | null;
+} {
+  const pickerName = getPickerDisplayName(order.picker);
+  const packerName = getUserDisplayName(order.packer);
+  const driverName = getUserDisplayName(order.driver);
+
+  switch (order.status) {
+    case "Picking":
+    case "Picked":
+      return pickerName ? { type: "picker", name: pickerName } : { type: null, name: null };
+
+    case "Packing":
+      return packerName ? { type: "packer", name: packerName } : { type: null, name: null };
+
+    case "Ready to Assign":
+      if (driverName) return { type: "driver", name: driverName };
+      if (packerName) return { type: "packer", name: packerName };
+      return { type: null, name: null };
+
+    case "Driver Accepted":
+    case "Started":
+    case "Delivered":
+    case "Delivery Failed":
+      return driverName ? { type: "driver", name: driverName } : { type: null, name: null };
+
+    default:
+      if (driverName) return { type: "driver", name: driverName };
+      if (packerName) return { type: "packer", name: packerName };
+      if (pickerName) return { type: "picker", name: pickerName };
+      return { type: null, name: null };
+  }
+}
+
+function AllStatusCell({ order }: { order: Order }) {
+  const activeCrew = getActiveCrewForStage(order);
+
+  return (
+    <div className="flex flex-col items-start gap-1 py-1 min-w-[150px]">
+      {/* Primary Status Badge */}
+      <StatusBadge status={order.status} className="font-semibold text-xs" />
+
+      {/* Active Stage Crew Member Only (hides expired stage crew and unassigned placeholders) */}
+      {activeCrew.type === "picker" && activeCrew.name && (
+        <CrewTag name={`Picker: ${activeCrew.name}`} Icon={User} color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400" />
+      )}
+
+      {activeCrew.type === "packer" && activeCrew.name && (
+        <CrewTag name={`Packer: ${activeCrew.name}`} Icon={Package} color="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400" />
+      )}
+
+      {activeCrew.type === "driver" && activeCrew.name && (
+        <div className="flex flex-wrap items-center gap-1">
+          <CrewTag name={`Driver: ${activeCrew.name}`} Icon={Truck} color="bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400" />
+          <DriverStatusBadge status={order.driverStatus} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OrderTableRow({
   order,
   selected,
@@ -305,7 +368,7 @@ export function OrderTableRow({
   expanded: boolean;
   onToggleExpand: () => void;
   onViewOrder: (order: Order) => void;
-  dynamicCol: "driver" | "picker" | "packer" | null;
+  dynamicCol: "driver" | "picker" | "packer" | "all_status" | null;
   activeTab?: string;
 }) {
   const handleRowClick = (e: MouseEvent<HTMLTableRowElement>) => {
@@ -538,7 +601,7 @@ export function OrderTableRow({
           <CommentCell order={order} />
         </td>
 
-        {/* Dynamic Column: Driver / Picker / Packer */}
+        {/* Dynamic Column: Driver / Picker / Packer / All Status */}
         {dynamicCol === "driver" && (
           <td className="py-3 pr-3 align-middle">
             <DriverCell order={order} />
@@ -552,6 +615,11 @@ export function OrderTableRow({
         {dynamicCol === "packer" && (
           <td className="py-3 pr-3 align-middle">
             <PackerCell order={order} />
+          </td>
+        )}
+        {dynamicCol === "all_status" && (
+          <td className="py-3 pr-3 align-middle">
+            <AllStatusCell order={order} />
           </td>
         )}
         {activeTab === "Ready to Assign" && (

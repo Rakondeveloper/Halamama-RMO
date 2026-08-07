@@ -4,14 +4,15 @@ import type { Order, LegacyTabId } from "@/lib/orders";
 import { OrderTableRow } from "./OrderTableRow";
 
 /** Determine which dynamic column to show based on the active tab */
-function getDynamicColumn(activeTab: LegacyTabId): "driver" | "picker" | "packer" | null {
+function getDynamicColumn(activeTab: LegacyTabId): "driver" | "picker" | "packer" | "all_status" | null {
   switch (activeTab) {
+    case "All":
     case "Unfulfilled":
+      return "all_status";
     case "In Delivery":
     case "Delivered":
     case "Delivery Failed":
     case "Installation":
-    case "All":
       return "driver";
     case "Ready to Assign":
       return "packer";
@@ -71,7 +72,16 @@ export function OrderTable({
     );
   }
 
-  const dynamicLabel = dynamicCol === "driver" ? "Driver" : dynamicCol === "picker" ? "Picker" : dynamicCol === "packer" ? "Packer" : null;
+  const dynamicLabel =
+    dynamicCol === "driver"
+      ? "Driver"
+      : dynamicCol === "picker"
+        ? "Picker"
+        : dynamicCol === "packer"
+          ? "Packer"
+          : dynamicCol === "all_status"
+            ? "Status / Crew"
+            : null;
   const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
   const isPacking = activeTab === "Packing";
 

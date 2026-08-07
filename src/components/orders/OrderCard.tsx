@@ -257,6 +257,14 @@ export function OrderCard({
             </span>
           )}
 
+          {/* Driver */}
+          {order.driver && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-[3px] text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200/50 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/30">
+              <Truck className="h-2.5 w-2.5" aria-hidden />
+              Driver: {getUserDisplayName(order.driver)}
+            </span>
+          )}
+
           {/* Bags */}
           {order.bags !== undefined && order.bags !== null && order.bags > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-[3px] text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200/50 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/30">

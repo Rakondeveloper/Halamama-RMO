@@ -244,7 +244,21 @@ export function mapErpNextToOrderItem(raw: ERPNextSalesOrderItem): OrderItemType
  */
 export function mapErpNextToEnrichedOrder(raw: ERPNextSalesOrder): EnrichedOrder {
   const base = mapErpNextToOrder(raw);
-  const itemsList = raw.items?.map(mapErpNextToOrderItem) || [];
+  let itemsList = raw.items?.map(mapErpNextToOrderItem) || [];
+
+  const isPostPickedStage = ["Picked", "Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(base.status);
+  const pickingStat = raw.custom_picking_status || base.pickingStatus;
+  const match = pickingStat?.match(/^(\d+)\/(\d+)/);
+  const targetPickedCount = isPostPickedStage ? itemsList.length : (match ? parseInt(match[1], 10) : -1);
+
+  if (targetPickedCount >= itemsList.length && itemsList.length > 0) {
+    itemsList = itemsList.map((item) => ({ ...item, status: "Prepared" as const }));
+  } else if (targetPickedCount >= 0) {
+    itemsList = itemsList.map((item, idx) => ({
+      ...item,
+      status: idx < targetPickedCount ? ("Prepared" as const) : ("Allocated" as const),
+    }));
+  }
 
   return {
     ...base,

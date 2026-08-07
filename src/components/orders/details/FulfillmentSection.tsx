@@ -137,6 +137,23 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
+                  {/* Aggregate Picking Progress for this FC */}
+                  {(() => {
+                    const pickedCount = items.filter((i) => i.status === "Prepared" || i.status === "Picked").length;
+                    const totalCount = items.length;
+                    const isAllPicked = pickedCount === totalCount;
+                    return (
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border",
+                        isAllPicked
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900"
+                          : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900"
+                      )}>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {pickedCount}/{totalCount} Items Picked
+                      </span>
+                    );
+                  })()}
                   <span className={cn(
                     "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide border",
                     info.flow === "Picker App Flow"
@@ -157,11 +174,17 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                 {items.map((item) => {
                   const itemIsScheduled = isItemScheduled(order.id, item.sku);
                   const itemIndex = itemIndexMap.get(item.id) ?? 1;
+                  const isPicked = item.status === "Prepared" || item.status === "Picked";
 
                   return (
                     <article
                       key={item.id}
-                      className="grid gap-4 p-4 transition-colors hover:bg-muted/10 sm:grid-cols-[auto_72px_1fr_auto] sm:items-center sm:p-5"
+                      className={cn(
+                        "grid gap-4 p-4 transition-colors sm:grid-cols-[auto_72px_1fr_auto] sm:items-center sm:p-5 border-l-4",
+                        isPicked
+                          ? "border-l-emerald-500 bg-emerald-50/20 hover:bg-emerald-50/30 dark:border-l-emerald-400 dark:bg-emerald-950/10 dark:hover:bg-emerald-950/20"
+                          : "border-l-amber-400/70 bg-amber-50/10 hover:bg-amber-50/20 dark:border-l-amber-500/70 dark:bg-amber-950/10 dark:hover:bg-amber-950/20"
+                      )}
                     >
                       {/* Serial Number Badge (in front of photo, shown only once) */}
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white shadow-xs dark:bg-slate-100 dark:text-slate-950 shrink-0 self-center">
@@ -373,21 +396,33 @@ function StatusPill({
 }
 
 function ItemStatus({ status }: { status: EnrichedOrder["itemsList"][number]["status"] }) {
+  const isPicked = status === "Prepared" || status === "Picked";
+
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold",
-        status === "Prepared" &&
-        "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400",
-        status === "Allocated" &&
-        "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400",
-        status === "Accepted" &&
-        "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400",
-        status === "Pending" && "border-border bg-muted text-muted-foreground",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shadow-2xs transition-all",
+        isPicked &&
+          "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300",
+        !isPicked && status === "Allocated" &&
+          "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
+        !isPicked && status === "Accepted" &&
+          "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300",
+        !isPicked && status === "Pending" &&
+          "border-border bg-muted text-muted-foreground",
       )}
     >
-      {status === "Prepared" ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
-      {status}
+      {isPicked ? (
+        <>
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>Picked</span>
+        </>
+      ) : (
+        <>
+          <Clock className="h-3.5 w-3.5 opacity-80" />
+          <span>Pending Pick ({status})</span>
+        </>
+      )}
     </span>
   );
 }
