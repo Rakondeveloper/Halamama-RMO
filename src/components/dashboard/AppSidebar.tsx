@@ -53,7 +53,11 @@ function HalamamaIconMark({ className }: { className?: string }) {
         className
       )}
     >
-      H
+      <img
+        src="https://halamama.com/cdn/shop/files/ma_gren_background_faviocn.png"
+        alt="Halamama"
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
