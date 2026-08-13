@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { fetchOrders, assignOrder, updateItemPickStatus, completePicking, flagOrderIssue, subscribeToSync } from '../../api/orders'
+import { fetchOrders, assignOrder, assignItemToMe, updateItemPickStatus, completePicking, flagOrderIssue, subscribeToSync } from '../../api/orders'
 import {
   Package,
   Flag,
@@ -15,7 +15,9 @@ import {
   Clock,
   CheckSquare,
   Check,
-  X
+  X,
+  Briefcase,
+  List
 } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import './picker.css'
@@ -66,8 +68,8 @@ export function PickerDashboard() {
   const handleConfirmAssign = async () => {
     if (!orderToAssign) return
     try {
-      await assignOrder(orderToAssign.id, user.email, 'picker')
-      success('Order assigned to you')
+      await assignOrder(orderToAssign.id, user.email, 'picker', user.name)
+      success('Items assigned to you')
       loadOrders()
       setActiveTab('Mine')
     } catch (err) {
@@ -78,13 +80,29 @@ export function PickerDashboard() {
     }
   }
 
-  const toggleItemPick = async (orderId, sku, picked) => {
+  const handleAssignItemToMe = async (orderId, sku) => {
     try {
-      await updateItemPickStatus(orderId, sku, picked)
+      await assignItemToMe(orderId, sku, user.email, user.name)
+      success('Item assigned to you')
+      loadOrders()
       if (activeOrder) {
         setActiveOrder({
           ...activeOrder,
-          items: activeOrder.items.map(i => i.sku === sku ? { ...i, picked } : i)
+          items: activeOrder.items.map(i => i.sku === sku ? { ...i, assignedTo: user.email, assignedName: user.name } : i)
+        })
+      }
+    } catch (err) {
+      error('Failed to assign item')
+    }
+  }
+
+  const toggleItemPick = async (orderId, sku, picked) => {
+    try {
+      await updateItemPickStatus(orderId, sku, picked, user.email, user.name)
+      if (activeOrder) {
+        setActiveOrder({
+          ...activeOrder,
+          items: activeOrder.items.map(i => i.sku === sku ? { ...i, picked, assignedTo: user.email, assignedName: user.name } : i)
         })
       }
     } catch (err) {
@@ -196,11 +214,16 @@ export function PickerDashboard() {
   }
 
   // Filter definitions
-  const newOrders = orders.filter(o => o.status === 'new')
-  const myOrders = orders.filter(o => o.status === 'picking' && o.assignedTo === user.email)
+  const newOrders = orders.filter(o => o.status === 'new' || (o.status === 'picking' && o.items && o.items.some(i => !i.assignedTo)))
+  const myOrders = orders.filter(o => 
+    o.status === 'picking' && (
+      o.assignedTo === user.email || 
+      (o.items && o.items.some(i => i.assignedTo === user.email))
+    )
+  )
   const completedOrders = orders.filter(o => 
     (o.status === 'packed' || o.status === 'assigning' || o.status === 'assigned' || o.status === 'delivered') && 
-    o.pickedBy === user.email
+    (o.pickedBy === user.email || (o.items && o.items.some(i => i.assignedTo === user.email)))
   )
   const allOrders = orders
 
@@ -214,7 +237,7 @@ export function PickerDashboard() {
   const myOrdersFiltered = myOrders
   const completedOrdersFiltered = dateFilteredOrders.filter(o => 
     (o.status === 'packed' || o.status === 'assigning' || o.status === 'assigned' || o.status === 'delivered') && 
-    o.pickedBy === user.email
+    (o.pickedBy === user.email || (o.items && o.items.some(i => i.assignedTo === user.email)))
   )
   const allOrdersFiltered = dateFilteredOrders
 
@@ -267,7 +290,11 @@ export function PickerDashboard() {
   if (activeOrder) {
     const pickedCount = activeOrder.items.filter(i => i.picked).length
     const totalCount = activeOrder.items.length
+    const myAssignedItems = activeOrder.items.filter(i => i.assignedTo === user.email)
+    const myPickedCount = myAssignedItems.filter(i => i.picked).length
+    const myTotalCount = myAssignedItems.length
     const allPicked = totalCount > 0 && pickedCount === totalCount
+    const canComplete = allPicked || (myTotalCount > 0 && myPickedCount === myTotalCount)
     const progress = totalCount > 0 ? (pickedCount / totalCount) * 100 : 0
 
     return (
@@ -289,6 +316,17 @@ export function PickerDashboard() {
 
         {/* Scrollable Body */}
         <div className="picker-detail-body">
+          {/* Approval Warning Banner */}
+          {activeOrder.isApprovedForPicking === false && (
+            <div className="picker-warning-banner" style={{ background: '#fef3c7', borderColor: '#f59e0b', color: '#92400e', marginBottom: '12px' }}>
+              <AlertTriangle className="picker-warning-icon" size={16} style={{ color: '#d97706' }} />
+              <div>
+                <div className="picker-warning-title" style={{ color: '#92400e' }}>Awaiting Operations Admin Approval</div>
+                <div className="picker-warning-text" style={{ color: '#b45309' }}>This order must be approved by Operations Admin before items can be picked.</div>
+              </div>
+            </div>
+          )}
+
           {/* Warning Banner */}
           <div className="picker-warning-banner">
             <AlertTriangle className="picker-warning-icon" size={16} />
@@ -298,21 +336,54 @@ export function PickerDashboard() {
             </div>
           </div>
 
-          {/* Customer Info Card */}
-          <div className="picker-customer-card">
-            <div className="picker-customer-header">
+          {/* Customer & Progress Card matching Screenshot 3 */}
+          <div style={{ backgroundColor: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: '16px', padding: '16px', marginBottom: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', marginBottom: '10px' }}>
               <div>
-                <div className="picker-customer-name">{activeOrder.customer}</div>
-                <div className="picker-customer-phone">{activeOrder.phone}</div>
-                <div className="picker-customer-date">{activeOrder.date || '5/20/2026 • 08:11 AM'}</div>
-              </div>
-              <div>
-                <div className="picker-customer-stats">Picked {pickedCount}/{totalCount} units</div>
-                <div className="picker-customer-stats">{pickedCount}/{totalCount} items</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>#{activeOrder.id}</div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{activeOrder.date || 'Aug 3 | 12:02'}</div>
               </div>
             </div>
-            <div className="picker-progress-bar">
-              <div className="picker-progress-fill" style={{ width: `${progress}%` }}></div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>
+                <List size={16} style={{ color: '#1b3636' }} />
+                <span>Picking Progress</span>
+              </div>
+              <span style={{ backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '700', fontSize: '12px', padding: '3px 10px', borderRadius: '20px' }}>
+                {pickedCount}/{totalCount} items ({Math.round(progress)}%)
+              </span>
+            </div>
+            <div className="picker-progress-bar" style={{ height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
+              <div className="picker-progress-fill" style={{ width: `${progress}%`, backgroundColor: '#1b3636', borderRadius: '4px', height: '100%' }} />
+            </div>
+
+            {/* Top Action Bar matching Screenshot 3 */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+              <button
+                className="picker-btn-assign"
+                style={{ flex: 1.2, minWidth: '140px', padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                onClick={handleConfirmAssign}
+              >
+                <Package size={14} />
+                <span>Assign All Items To Me</span>
+              </button>
+              <button
+                className="picker-btn-view"
+                style={{ flex: 0.9, minWidth: '95px', padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', backgroundColor: '#ffffff', border: '1.5px solid #cbd5e1', color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                onClick={() => setFlagItemSku(activeOrder.items[0]?.sku || null)}
+              >
+                <Flag size={14} />
+                <span>Flag Issue</span>
+              </button>
+              <button
+                className="picker-btn-complete ready"
+                style={{ flex: 0.9, minWidth: '95px', padding: '10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', backgroundColor: '#1b3636', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                onClick={() => handleComplete(activeOrder.id)}
+              >
+                <CheckCircle2 size={14} />
+                <span>Complete</span>
+              </button>
             </div>
           </div>
 
@@ -324,6 +395,10 @@ export function PickerDashboard() {
 
             <div>
               {activeOrder.items.map(item => {
+                const isAssignedToMe = item.assignedTo === user.email
+                const isAssignedToOther = item.assignedTo && item.assignedTo !== user.email
+                const isUnassigned = !item.assignedTo
+
                 return (
                 <div key={item.sku} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1.5px solid var(--color-border)' }}>
                   <div className="picker-item-row" style={{ borderBottom: 'none' }}>
@@ -353,20 +428,70 @@ export function PickerDashboard() {
                         <span className="picker-item-qty">{item.qty}x</span> {item.name}
                         <span className="picker-item-picked-status">({item.picked ? '1/1' : '0/1'})</span>
                       </div>
-                      <div className="picker-item-meta">
-                        SKU: {item.sku} • Barcode: 0-72239-30639-0
+                      <div className="picker-item-meta" style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                        BARCODE: {item.barcode || item.sku || '49549'} <br />
+                        SKU: {item.sku}
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'stretch', marginTop: '8px' }}>
-                        <button
-                          className={`picker-item-toggle ${item.picked ? 'active' : ''}`}
-                          onClick={() => toggleItemPick(activeOrder.id, item.sku, !item.picked)}
-                        >
-                          <div className="picker-check-circle">
-                            {item.picked && <CheckCircle2 size={10} />}
-                          </div>
-                          <span>{item.picked ? 'Picked' : 'Not picked'}</span>
-                        </button>
+                      {/* Quantity Badge */}
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
+                        <span className="picker-badge-qty">QTY {item.qty || 1}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginTop: '8px' }}>
+                        {item.isApproved === false ? (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            color: '#b45309',
+                            padding: '4px 8px',
+                            border: '1.5px solid #f59e0b',
+                            backgroundColor: '#fef3c7',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            Awaiting Ops Admin Approval
+                          </span>
+                        ) : isUnassigned ? (
+                          <button
+                            className="picker-btn-assign"
+                            style={{ fontSize: '11px', padding: '6px 12px', flex: 'none' }}
+                            onClick={() => handleAssignItemToMe(activeOrder.id, item.sku)}
+                          >
+                            <UserPlus size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                            Assign to Me
+                          </button>
+                        ) : null}
+
+                        {isAssignedToMe && (
+                          <button
+                            className={`picker-item-toggle ${item.picked ? 'active' : ''}`}
+                            onClick={() => toggleItemPick(activeOrder.id, item.sku, !item.picked)}
+                          >
+                            <div className="picker-check-circle">
+                              {item.picked && <CheckCircle2 size={10} />}
+                            </div>
+                            <span>{item.picked ? 'Picked' : 'Not picked'}</span>
+                          </button>
+                        )}
+
+                        {isAssignedToOther && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            color: 'var(--color-muted)',
+                            padding: '4px 8px',
+                            border: '1.5px solid var(--color-border)',
+                            backgroundColor: 'var(--color-light-gray)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            Picker: {item.assignedName || item.assignedTo.split('@')[0]}
+                            {item.picked && <CheckCircle2 size={12} style={{ color: 'black' }} />}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -402,11 +527,11 @@ export function PickerDashboard() {
         <div className="picker-bottom-action">
           <div className="picker-bottom-action-inner">
             <button
-              className={`picker-btn-complete ${allPicked ? 'ready' : 'not-ready'}`}
-              disabled={!allPicked}
+              className={`picker-btn-complete ${canComplete ? 'ready' : 'not-ready'}`}
+              disabled={!canComplete}
               onClick={() => handleComplete(activeOrder.id)}
             >
-              {allPicked ? (
+              {canComplete ? (
                 <>
                   <CheckSquare size={14} />
                   <span>Complete Picking</span>
@@ -414,7 +539,7 @@ export function PickerDashboard() {
               ) : (
                 <>
                   <Clock size={14} />
-                  <span>{totalCount - pickedCount} item(s) remaining</span>
+                  <span>{myTotalCount > 0 ? (myTotalCount - myPickedCount) : (totalCount - pickedCount)} item(s) remaining</span>
                 </>
               )}
             </button>
@@ -788,29 +913,39 @@ export function PickerDashboard() {
         )}
       </div>
 
-      {/* Assign Modal */}
+      {/* Assign Bottom Sheet Modal matching Screenshot 2 */}
       {assignModalOpen && (
-        <div className="picker-modal-overlay">
-          <div className="picker-modal-content">
-            <h3 className="picker-modal-title">Assign Order to You?</h3>
-            <p className="picker-modal-desc">Are you sure you want to assign order <strong>{orderToAssign?.id}</strong> to yourself?</p>
+        <div className="picker-modal-sheet-overlay" onClick={() => setAssignModalOpen(false)}>
+          <div className="picker-modal-sheet-content" onClick={(e) => e.stopPropagation()}>
+            <div className="picker-sheet-handle" />
+            <h3 className="picker-sheet-title">Assign Order #{orderToAssign?.id}</h3>
+            <p className="picker-sheet-desc">Choose how you would like to assign this order:</p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                className="picker-btn-confirm"
-                onClick={handleConfirmAssign}
-              >
-                <Check size={14} />
-                <span>Yes, Assign Order</span>
-              </button>
-              <button
-                className="picker-btn-cancel"
-                onClick={() => setAssignModalOpen(false)}
-              >
-                <X size={14} />
-                <span>Cancel</span>
-              </button>
-            </div>
+            <button className="picker-option-card" onClick={handleConfirmAssign}>
+              <div className="picker-option-icon">
+                <Briefcase size={20} />
+              </div>
+              <div>
+                <div className="picker-option-title">Assign Complete Order</div>
+                <div className="picker-option-sub">Assign all items in this order to yourself now.</div>
+              </div>
+            </button>
+
+            <button
+              className="picker-option-card"
+              onClick={() => {
+                setActiveOrder(orderToAssign);
+                setAssignModalOpen(false);
+              }}
+            >
+              <div className="picker-option-icon">
+                <List size={20} />
+              </div>
+              <div>
+                <div className="picker-option-title">Assign Item-wise</div>
+                <div className="picker-option-sub">Open order details to assign specific items individually.</div>
+              </div>
+            </button>
           </div>
         </div>
       )}

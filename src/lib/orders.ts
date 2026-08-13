@@ -182,6 +182,9 @@ export interface Order {
   shopify: "Fulfilled" | "Unfulfilled" | "Pending";
   pickingStatus?: string;
   packingStatus?: string;
+  isApprovedForPicking?: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
   bags?: number;
   tags?: string[];
   deliveryDate?: string;
@@ -211,6 +214,12 @@ export interface OrderItemType {
   fcName: string;
   bin: string;
   status: "Prepared" | "Accepted" | "Allocated" | "Pending" | "Picked";
+  /** Whether Operations Admin has approved this item for picking */
+  isApproved?: boolean;
+  /** Email of the picker assigned to / who picked this item */
+  pickedBy?: string;
+  /** Display name of the picker */
+  pickerName?: string;
   /**
    * Fulfillment type for this item:
    * - FC: standard fulfillment center item (normal delivery flow)
@@ -1000,6 +1009,8 @@ export function getMockOrderItems(
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "picker@rmo.qa",
+        pickerName: "Ahmed Khalil",
       },
       {
         id: "vl-item-4",
@@ -1015,6 +1026,8 @@ export function getMockOrderItems(
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "nijad@rmo.qa",
+        pickerName: "Nijad",
       },
     ];
   } else if (id === "HM68233") {
@@ -1045,6 +1058,35 @@ export function getMockOrderItems(
         bin: "B-100 / 1",
         status: "Allocated",
       }
+    ];
+  } else if (id === "HM99010") {
+    itemsList = [
+      { id: "dummy-10-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Pending" },
+      { id: "dummy-10-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Pending" },
+      { id: "dummy-10-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+      { id: "dummy-10-4", name: "Bestway Apx 365 Round Pool Set (12' x 30\")", sku: "561KC", barcode: "56100000002", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 799.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-300 / 5", status: "Pending" },
+    ];
+  } else if (id === "HM99011") {
+    itemsList = [
+      { id: "dummy-11-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Pending", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-11-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Pending" },
+      { id: "dummy-11-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+    ];
+  } else if (id === "HM99012") {
+    itemsList = [
+      { id: "dummy-12-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-12-2", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+    ];
+  } else if (id === "HM99013") {
+    itemsList = [
+      { id: "dummy-13-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-13-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Prepared", pickedBy: "nijad@rmo.qa", pickerName: "Nijad" },
+      { id: "dummy-13-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+    ];
+  } else if (id === "HM99014") {
+    itemsList = [
+      { id: "dummy-14-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-14-2", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
     ];
   } else if (id === "HM68234") {
     itemsList = [
@@ -1220,7 +1262,7 @@ export function getMockOrderItems(
 
   // Check if order status implies fully picked or parse pickingStatus count
   const isPostPickedStage = orderStatus && ["Picked", "Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(orderStatus);
-  
+
   let targetPickedCount = -1;
   if (isPostPickedStage) {
     targetPickedCount = itemsList.length;
@@ -1265,7 +1307,9 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
   const baseOrder = MOCK_ORDERS.find((o) => o.id === id);
   if (!baseOrder) return undefined;
 
-  const itemsList = getMockOrderItems(id, baseOrder.items, baseOrder.status, baseOrder.pickingStatus);
+  const itemsList = baseOrder.itemsList && baseOrder.itemsList.length > 0
+    ? baseOrder.itemsList
+    : getMockOrderItems(id, baseOrder.items, baseOrder.status, baseOrder.pickingStatus);
   const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment, baseOrder.status, baseOrder.pickingStatus);
 
   return {
@@ -1280,11 +1324,11 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
       ...baseOrder.payment,
       subtotal: calculatedTotal - (baseOrder.payment.shipping ?? 0) + (baseOrder.payment.discount ?? 0),
       total: calculatedTotal,
-      balance: (baseOrder as any).paymentBalance !== undefined 
-        ? (baseOrder as any).paymentBalance 
+      balance: (baseOrder as any).paymentBalance !== undefined
+        ? (baseOrder as any).paymentBalance
         : (calculatedTotal - (baseOrder.payment.totalPaid ?? 0)),
-      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined 
-        ? (baseOrder as any).paymentBalance 
+      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined
+        ? (baseOrder as any).paymentBalance
         : (baseOrder.payment.balance ?? 0)),
     } : {
       method: ((baseOrder as any).paymentMethod as any) || "Cash",
@@ -1369,6 +1413,121 @@ export const ACTIVE_STATUSES: OrderStatus[] = [
 ];
 
 export const MOCK_ORDERS: Order[] = [
+  {
+    id: "HM99010",
+    customerId: "cust-99010",
+    tat: "00h 10m",
+    date: getTodayDateString(),
+    time: "14:15",
+    customer: { name: "Mariam Al-Kabi", email: "mariam.kabi@example.com", phone: "33881122" },
+    channel: "shopify",
+    items: 4,
+    status: "New",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: null,
+    packer: null,
+    total: 1458,
+    shopify: "Unfulfilled",
+    pickingStatus: "0/4 Picked",
+    packingStatus: "0/4 Packed",
+    bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99011",
+    customerId: "cust-99011",
+    tat: "00h 15m",
+    date: getTodayDateString(),
+    time: "14:30",
+    customer: { name: "Tariq Al-Mansoori", email: "tariq.mansoori@example.com", phone: "55441199" },
+    channel: "shopify",
+    items: 3,
+    status: "Picking",
+    city: "West Bay",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 659,
+    shopify: "Unfulfilled",
+    pickingStatus: "0/3 Picked",
+    packingStatus: "0/3 Packed",
+    bags: 0,
+    lat: 25.3286,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99012",
+    customerId: "cust-99012",
+    tat: "00h 20m",
+    date: getTodayDateString(),
+    time: "14:45",
+    customer: { name: "Hind Al-Sulaiti", email: "hind.sulaiti@example.com", phone: "66770011" },
+    channel: "shopify",
+    items: 2,
+    status: "Picking",
+    city: "The Pearl",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.3713,
+    lng: 51.5476,
+  },
+  {
+    id: "HM99013",
+    customerId: "cust-99013",
+    tat: "00h 25m",
+    date: getTodayDateString(),
+    time: "15:00",
+    customer: { name: "Rashid Al-Naimi", email: "rashid.naimi@example.com", phone: "33992288" },
+    channel: "shopify",
+    items: 3,
+    status: "Picking",
+    city: "Lusail",
+    coordinator: "-",
+    driver: null,
+    picker: "Ahmed Khalil, Nijad",
+    packer: null,
+    total: 659,
+    shopify: "Unfulfilled",
+    pickingStatus: "2/3 Picked",
+    packingStatus: "0/3 Packed",
+    bags: 0,
+    lat: 25.4182,
+    lng: 51.5218,
+  },
+  {
+    id: "HM99014",
+    customerId: "cust-99014",
+    tat: "00h 30m",
+    date: getTodayDateString(),
+    time: "15:15",
+    customer: { name: "Reem Al-Thani", email: "reem.thani@example.com", phone: "55113344" },
+    channel: "shopify",
+    items: 2,
+    status: "Picked",
+    city: "Al Waab",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "2/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.2638,
+    lng: 51.4822,
+  },
   {
     id: "HM68233",
     customerId: "cust-68233",
@@ -2002,11 +2161,11 @@ export const MOCK_ORDERS: Order[] = [
     customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
     channel: "shopify" as const,
     items: 2,
-    status: "New" as const,
+    status: "Picking" as const,
     city: "Doha",
     coordinator: "-",
     driver: null,
-    picker: null,
+    picker: "picker@rmo.qa, nijad@rmo.qa",
     packer: null,
     total: 480,
     shopify: "Unfulfilled" as const,
@@ -2321,7 +2480,7 @@ export function computeStageArrivedAt(order: {
   const timeStr = order.time; // e.g. "14:30"
   const year = new Date().getFullYear();
   let creationDate = new Date(`${dateStr} ${year} ${timeStr}`);
-  
+
   // If we have a tat string, we can back-calculate the creation date (ideal for mock data)
   if (order.tat) {
     const match = order.tat.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
@@ -2337,18 +2496,18 @@ export function computeStageArrivedAt(order: {
 
   const result: Record<string, string> = {};
   const statusIdx = STAGE_ORDER.indexOf(order.status);
-  
+
   // Determine elapsed time from creation until now
   const totalElapsedMin = Math.max(1, (Date.now() - creationDate.getTime()) / (60 * 1000));
 
   // Determine the default offset for the current status (or fallback)
   const maxDefaultOffset = STAGE_OFFSETS[order.status] ?? 120;
-  
+
   // Proportional scale factor
   // If total elapsed time is less than the stage's default offset, scale all offsets down
   // so the current stage is reached at 90% of the elapsed time.
-  const scaleFactor = totalElapsedMin < maxDefaultOffset 
-    ? (totalElapsedMin * 0.9) / maxDefaultOffset 
+  const scaleFactor = totalElapsedMin < maxDefaultOffset
+    ? (totalElapsedMin * 0.9) / maxDefaultOffset
     : 1.0;
 
   // For statuses in the main lifecycle

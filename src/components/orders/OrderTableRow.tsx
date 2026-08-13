@@ -268,14 +268,39 @@ function DriverCell({ order }: { order: Order }) {
   );
 }
 
+function getOrderPickers(order: Order): string[] {
+  const itemPickers = order.itemsList
+    ? Array.from(
+        new Set(
+          order.itemsList
+            .map((i) => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null))
+            .filter((p): p is string => Boolean(p))
+        )
+      )
+    : [];
+  if (itemPickers.length > 0) {
+    return itemPickers;
+  }
+  if (order.picker) {
+    return order.picker.split(",").map((p) => getPickerDisplayName(p.trim()));
+  }
+  return [];
+}
+
 function PickerCell({ order }: { order: Order }) {
-  if (!order.picker) return <span className="text-xs text-muted-foreground">—</span>;
+  const pickers = getOrderPickers(order);
+  if (pickers.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
   return (
-    <CrewTag
-      name={getPickerDisplayName(order.picker)}
-      Icon={User}
-      color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
-    />
+    <div className="flex flex-wrap gap-1">
+      {pickers.map((pName, idx) => (
+        <CrewTag
+          key={idx}
+          name={pName}
+          Icon={User}
+          color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+        />
+      ))}
+    </div>
   );
 }
 
@@ -294,7 +319,8 @@ function getActiveCrewForStage(order: Order): {
   type: "picker" | "packer" | "driver" | null;
   name: string | null;
 } {
-  const pickerName = getPickerDisplayName(order.picker);
+  const pickers = getOrderPickers(order);
+  const pickerName = pickers.length > 0 ? pickers.join(", ") : null;
   const packerName = getUserDisplayName(order.packer);
   const driverName = getUserDisplayName(order.driver);
 
@@ -499,28 +525,48 @@ export function OrderTableRow({
                 const picked = parts[0];
                 const total = parts[1];
                 const isFullyPicked = picked && total && picked === total && total !== "0";
+                const totalNum = parseInt(total, 10) || 0;
+                const pickedNum = parseInt(picked, 10) || 0;
+                const pct = totalNum > 0 ? Math.round((pickedNum / totalNum) * 100) : 0;
                 return (
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    isFullyPicked
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-                      : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-                  )}>
-                    {pickingStat}
-                  </span>
+                  <div className="flex flex-col gap-1 min-w-[100px]">
+                    <span className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold w-fit",
+                      isFullyPicked
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                    )}>
+                      {pickingStat} ({pct}%)
+                    </span>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                      <div
+                        className={cn("h-full rounded-full transition-all duration-300", isFullyPicked ? "bg-emerald-500" : "bg-amber-500")}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
                 );
               })()}
             </td>
             <td className="py-3 pr-3 align-middle">
-              {order.picker ? (
-                <CrewTag
-                  name={getPickerDisplayName(order.picker)}
-                  Icon={User}
-                  color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
-                />
-              ) : (
-                <span className="text-xs text-muted-foreground">—</span>
-              )}
+              {(() => {
+                const pickers = getOrderPickers(order);
+                if (pickers.length === 0) {
+                  return <span className="text-xs text-muted-foreground">—</span>;
+                }
+                return (
+                  <div className="flex flex-wrap gap-1">
+                    {pickers.map((pName, idx) => (
+                      <CrewTag
+                        key={idx}
+                        name={pName}
+                        Icon={User}
+                        color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
             </td>
           </>
         )}
@@ -686,7 +732,10 @@ export function OrderTableRow({
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <User className="h-4 w-4 text-muted-foreground" aria-hidden />
-                    Picker: {getPickerDisplayName(order.picker) || "—"}
+                    Picker: {(() => {
+                      const pickers = getOrderPickers(order);
+                      return pickers.length > 0 ? pickers.join(", ") : "—";
+                    })()}
                   </li>
                   <li className="flex items-center gap-2 font-medium">
                     <Package className="h-4 w-4 text-muted-foreground" aria-hidden />

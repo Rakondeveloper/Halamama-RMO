@@ -112,7 +112,7 @@ function seedIfNeeded(): void {
           updated = true;
         } else {
           const stored = parsed[index];
-          if (!stored.itemsList || stored.itemsList.length === 0 || ["HM64110", "HM99001", "HM68233", "HM68234"].includes(mockOrder.id)) {
+          if (!stored.itemsList || stored.itemsList.length === 0) {
             stored.itemsList = getMockOrderItems(mockOrder.id, mockOrder.items);
             stored.total = getMockOrderTotal(mockOrder.id, mockOrder.items, stored.payment);
             updated = true;

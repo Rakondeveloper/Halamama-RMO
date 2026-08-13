@@ -92,6 +92,25 @@ function channelLabel(channel: string): string {
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+function getOrderPickers(order: Order): string[] {
+  const itemPickers = order.itemsList
+    ? Array.from(
+        new Set(
+          order.itemsList
+            .map((i) => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null))
+            .filter((p): p is string => Boolean(p))
+        )
+      )
+    : [];
+  if (itemPickers.length > 0) {
+    return itemPickers;
+  }
+  if (order.picker) {
+    return order.picker.split(",").map((p) => getPickerDisplayName(p.trim()));
+  }
+  return [];
+}
+
 export function OrderCard({
   order,
   selected,
@@ -242,12 +261,16 @@ export function OrderCard({
           </span>
 
           {/* Picker */}
-          {order.picker && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-[3px] text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200/50 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/30">
-              <User className="h-2.5 w-2.5" aria-hidden />
-              Picker: {getPickerDisplayName(order.picker)}
-            </span>
-          )}
+          {(() => {
+            const pickers = getOrderPickers(order);
+            if (pickers.length === 0) return null;
+            return (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-[3px] text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200/50 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/30">
+                <User className="h-2.5 w-2.5" aria-hidden />
+                Picker: {pickers.join(", ")}
+              </span>
+            );
+          })()}
 
           {/* Packer */}
           {order.packer && (

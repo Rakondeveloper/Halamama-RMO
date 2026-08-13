@@ -306,13 +306,13 @@ let mockOrders = [
     address: 'Doha',
     phone: '33224455',
     total: 2198,
-    status: 'new',
+    status: 'picking',
     items: [
-      { id: "vl-item-3", sku: "CC-N2M-CRIB", name: "Chicco Next2Me Side Sleeping Crib", qty: 1, picked: false, itemType: "VL_HMA", locationId: "loc-1" },
-      { id: "vl-item-4", sku: "NL-GROW-LNG", name: "Nuna Leaf Grow Lounger", qty: 1, picked: false, itemType: "VL_HMA", locationId: "loc-1" }
+      { id: "vl-item-3", sku: "CC-N2M-CRIB", name: "Chicco Next2Me Side Sleeping Crib", qty: 1, picked: false, itemType: "VL_HMA", locationId: "loc-1", assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' },
+      { id: "vl-item-4", sku: "NL-GROW-LNG", name: "Nuna Leaf Grow Lounger", qty: 1, picked: false, itemType: "VL_HMA", locationId: "loc-1", assignedTo: 'nijad@rmo.qa', assignedName: 'Nijad' }
     ],
     bags: 0,
-    assignedTo: null,
+    assignedTo: 'picker@rmo.qa',
     date: '6/16/2026 • 02:00 PM',
     lat: 25.2854,
     lng: 51.5310
@@ -349,6 +349,97 @@ let mockOrders = [
     bags: 0,
     assignedTo: null,
     date: '6/27/2026 • 10:55 AM',
+    lat: 25.2638,
+    lng: 51.4822
+  },
+  {
+    id: 'HM99010',
+    customer: 'Mariam Al-Kabi',
+    address: 'Doha',
+    phone: '33881122',
+    total: 1458,
+    status: 'new',
+    items: [
+      { sku: 'NS-SPNC-1P-0200', name: 'Frida Baby Saline Spray', qty: 1, picked: false, fc: 'F01' },
+      { sku: 'HM-1100', name: 'Wet Wipes 3-Pack', qty: 1, picked: false, fc: 'F01' },
+      { sku: '5021933', name: 'SmarTrike STR3 6-in-1 Stroller-Trike (Black)', qty: 1, picked: false, fc: 'F01' },
+      { sku: '561KC', name: 'Bestway Apx 365 Round Pool Set (12\' x 30")', qty: 1, picked: false, fc: 'F01' }
+    ],
+    bags: 0,
+    assignedTo: null,
+    date: '8/12/2026 • 02:15 PM',
+    lat: 25.2854,
+    lng: 51.5310
+  },
+  {
+    id: 'HM99011',
+    customer: 'Tariq Al-Mansoori',
+    address: 'West Bay, Doha',
+    phone: '55441199',
+    total: 659,
+    status: 'picking',
+    items: [
+      { sku: 'NS-SPNC-1P-0200', name: 'Frida Baby Saline Spray', qty: 1, picked: false, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' },
+      { sku: 'HM-1100', name: 'Wet Wipes 3-Pack', qty: 1, picked: false, fc: 'F01' },
+      { sku: '5021933', name: 'SmarTrike STR3 6-in-1 Stroller-Trike (Black)', qty: 1, picked: false, fc: 'F01' }
+    ],
+    bags: 0,
+    assignedTo: 'picker@rmo.qa',
+    date: '8/12/2026 • 02:30 PM',
+    lat: 25.3286,
+    lng: 51.5310
+  },
+  {
+    id: 'HM99012',
+    customer: 'Hind Al-Sulaiti',
+    address: 'The Pearl, Doha',
+    phone: '66770011',
+    total: 630,
+    status: 'picking',
+    items: [
+      { sku: 'NS-SPNC-1P-0200', name: 'Frida Baby Saline Spray', qty: 1, picked: true, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' },
+      { sku: '5021933', name: 'SmarTrike STR3 6-in-1 Stroller-Trike (Black)', qty: 1, picked: false, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' }
+    ],
+    bags: 0,
+    assignedTo: 'picker@rmo.qa',
+    date: '8/12/2026 • 02:45 PM',
+    lat: 25.3713,
+    lng: 51.5476
+  },
+  {
+    id: 'HM99013',
+    customer: 'Rashid Al-Naimi',
+    address: 'Lusail, Doha',
+    phone: '33992288',
+    total: 659,
+    status: 'picking',
+    items: [
+      { sku: 'NS-SPNC-1P-0200', name: 'Frida Baby Saline Spray', qty: 1, picked: true, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' },
+      { sku: 'HM-1100', name: 'Wet Wipes 3-Pack', qty: 1, picked: true, fc: 'F01', assignedTo: 'nijad@rmo.qa', assignedName: 'Nijad' },
+      { sku: '5021933', name: 'SmarTrike STR3 6-in-1 Stroller-Trike (Black)', qty: 1, picked: false, fc: 'F01' }
+    ],
+    bags: 0,
+    assignedTo: 'picker@rmo.qa',
+    date: '8/12/2026 • 03:00 PM',
+    lat: 25.4182,
+    lng: 51.5218
+  },
+  {
+    id: 'HM99014',
+    customer: 'Reem Al-Thani',
+    address: 'Al Waab, Doha',
+    phone: '55113344',
+    total: 630,
+    status: 'packed',
+    items: [
+      { sku: 'NS-SPNC-1P-0200', name: 'Frida Baby Saline Spray', qty: 1, picked: true, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' },
+      { sku: '5021933', name: 'SmarTrike STR3 6-in-1 Stroller-Trike (Black)', qty: 1, picked: true, fc: 'F01', assignedTo: 'picker@rmo.qa', assignedName: 'Ahmed Khalil' }
+    ],
+    bags: 0,
+    assignedTo: null,
+    pickedBy: 'picker@rmo.qa',
+    pickerName: 'Ahmed Khalil',
+    date: '8/12/2026 • 03:15 PM',
     lat: 25.2638,
     lng: 51.4822
   }
@@ -406,6 +497,8 @@ export const fetchOrders = async (role, email) => {
         localOrder.driverEmail = sharedOrder.driverEmail;
         localOrder.tags = sharedOrder.tags || localOrder.tags;
         localOrder.payment = sharedOrder.payment || localOrder.payment;
+        localOrder.isApprovedForPicking = sharedOrder.isApprovedForPicking !== false;
+        localOrder.approvedBy = sharedOrder.approvedBy;
       }
       return localOrder;
     });
@@ -415,6 +508,7 @@ export const fetchOrders = async (role, email) => {
 
     if (role === 'picker') {
       return activeMergedOrders
+        .filter(o => o.isApprovedForPicking !== false)
         .map(o => {
           const hilalItems = o.items.filter(item => !item.fc || item.fc === 'F01');
           if (hilalItems.length === 0) return null;
@@ -483,16 +577,67 @@ export const fetchOrders = async (role, email) => {
   return [];
 };
 
-export const assignOrder = async (orderId, email, role) => {
+export const assignItemToMe = async (orderId, sku, email, name) => {
+  if (isDemoMode()) {
+    await delay(200);
+    const o = mockOrders.find(o => o.id === orderId);
+    if (o) {
+      if (o.status === 'new') o.status = 'picking';
+      const item = o.items ? o.items.find(i => i.sku === sku) : null;
+      if (item) {
+        item.assignedTo = email;
+        item.assignedName = name;
+      }
+    }
+
+    updateSharedOrderFromRmo(orderId, (adminOrder) => {
+      if (adminOrder.status === 'New' || adminOrder.status === 'Unfulfilled') {
+        adminOrder.status = 'Picking';
+      }
+      if (adminOrder.itemsList) {
+        const item = adminOrder.itemsList.find(i => i.sku === sku || i.id === sku);
+        if (item) {
+          item.pickedBy = email;
+          item.pickerName = name;
+        }
+        const pickers = Array.from(
+          new Set(adminOrder.itemsList.map(i => i.pickerName || i.pickedBy).filter(Boolean))
+        );
+        if (pickers.length > 0) {
+          adminOrder.picker = pickers.join(', ');
+        }
+      } else {
+        adminOrder.picker = email;
+      }
+    });
+    broadcastChange();
+    return o;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order Item/${sku}`, {
+    custom_picker: email
+  });
+  return true;
+};
+
+export const assignOrder = async (orderId, email, role, name) => {
   if (isDemoMode()) {
     await delay(300);
     const o = mockOrders.find(o => o.id === orderId);
     if (o) {
-      o.assignedTo = email;
       if (role === 'picker') {
         o.status = 'picking';
+        if (o.items) {
+          o.items.forEach(i => {
+            if (!i.assignedTo) {
+              i.assignedTo = email;
+              i.assignedName = name || email.split('@')[0];
+            }
+          });
+        }
       }
       if (role === 'packer') {
+        o.assignedTo = email;
         o.status = 'packing';
       }
     }
@@ -500,8 +645,21 @@ export const assignOrder = async (orderId, email, role) => {
     // Sync back to admin dashboard
     updateSharedOrderFromRmo(orderId, (adminOrder) => {
       if (role === 'picker') {
-        adminOrder.picker = email;
         adminOrder.status = 'Picking';
+        if (adminOrder.itemsList) {
+          adminOrder.itemsList.forEach(item => {
+            if (!item.pickedBy) {
+              item.pickedBy = email;
+              item.pickerName = name || email.split('@')[0];
+            }
+          });
+          const pickers = Array.from(
+            new Set(adminOrder.itemsList.map(i => i.pickerName || i.pickedBy).filter(Boolean))
+          );
+          adminOrder.picker = pickers.join(', ');
+        } else {
+          adminOrder.picker = email;
+        }
       }
       if (role === 'packer') {
         adminOrder.packer = email;
@@ -528,19 +686,40 @@ export const assignOrder = async (orderId, email, role) => {
   return mapErpNextToRmoOrder(response.data);
 };
 
-export const updateItemPickStatus = async (orderId, sku, picked) => {
+export const updateItemPickStatus = async (orderId, sku, picked, email, name) => {
   if (isDemoMode()) {
     await delay(200);
     const o = mockOrders.find(o => o.id === orderId);
     if (o) {
-      const item = o.items.find(i => i.sku === sku);
-      if (item) item.picked = picked;
+      const item = o.items ? o.items.find(i => i.sku === sku) : null;
+      if (item) {
+        item.picked = picked;
+        if (picked && !item.assignedTo && email) {
+          item.assignedTo = email;
+          item.assignedName = name;
+        }
+      }
     }
+
+    updateSharedOrderFromRmo(orderId, (adminOrder) => {
+      if (adminOrder.itemsList) {
+        const item = adminOrder.itemsList.find(i => i.sku === sku || i.id === sku);
+        if (item) {
+          item.status = picked ? "Prepared" : "Pending";
+          if (picked && !item.pickedBy && email) {
+            item.pickedBy = email;
+            item.pickerName = name;
+          }
+        }
+        const pickedCount = adminOrder.itemsList.filter(i => i.status === 'Prepared' || i.status === 'Picked').length;
+        adminOrder.pickingStatus = `${pickedCount}/${adminOrder.itemsList.length} Picked`;
+      }
+    });
+    broadcastChange();
+
     return o;
   }
 
-  // Real ERPNext single item status update (updating custom_status on Sales Order Item DocType)
-  // Your ERPNext dev might map this differently, this is fully configurable
   await erpNextClient.put(`/api/resource/Sales Order Item/${sku}`, {
     custom_status: picked ? "Picked" : "Pending"
   });
@@ -551,9 +730,31 @@ export const completePicking = async (orderId, pickerEmail, pickerName) => {
   if (isDemoMode()) {
     await delay(400);
     const o = mockOrders.find(o => o.id === orderId);
+    let allItemsPickedInOrder = false;
+
     if (o) {
-      o.status = 'packed';
-      o.assignedTo = null;
+      if (o.items) {
+        // Mark items assigned to this picker as picked
+        o.items.forEach(i => {
+          if (i.assignedTo === pickerEmail || i.picked) {
+            i.picked = true;
+            if (!i.assignedTo) {
+              i.assignedTo = pickerEmail;
+              i.assignedName = pickerName;
+            }
+          }
+        });
+        allItemsPickedInOrder = o.items.every(i => i.picked);
+      } else {
+        allItemsPickedInOrder = true;
+      }
+
+      if (allItemsPickedInOrder) {
+        o.status = 'packed';
+        o.assignedTo = null;
+      } else {
+        o.status = 'picking';
+      }
       o.pickedBy = pickerEmail || 'picker@rmo.qa';
       o.pickerName = pickerName || 'Ahmed Khalil';
       const now = new Date();
@@ -569,24 +770,33 @@ export const completePicking = async (orderId, pickerEmail, pickerName) => {
 
     // Sync back to admin dashboard
     updateSharedOrderFromRmo(orderId, (adminOrder) => {
-      adminOrder.status = 'Picked';
-      adminOrder.picker = pickerEmail || pickerName;
+      // Update local item statuses for this picker to Prepared
+      if (adminOrder.itemsList) {
+        adminOrder.itemsList.forEach(item => {
+          if (item.pickedBy === pickerEmail || item.status === 'Prepared' || item.status === 'Picked') {
+            item.status = 'Prepared';
+            if (!item.pickedBy) {
+              item.pickedBy = pickerEmail;
+              item.pickerName = pickerName;
+            }
+          }
+        });
+        const pickedCount = adminOrder.itemsList.filter(item => item.status === 'Prepared' || item.status === 'Picked').length;
+        const totalItemsCount = adminOrder.itemsList.length;
+        adminOrder.pickingStatus = `${pickedCount}/${totalItemsCount} Picked`;
+
+        if (pickedCount === totalItemsCount) {
+          adminOrder.status = 'Picked';
+        } else {
+          adminOrder.status = 'Picking';
+        }
+      } else {
+        adminOrder.status = 'Picked';
+        adminOrder.pickingStatus = `${adminOrder.items}/${adminOrder.items} Picked`;
+      }
       const now = new Date();
       adminOrder.date = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       adminOrder.time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-      // Update local F01 item statuses to Prepared
-      if (adminOrder.itemsList) {
-        adminOrder.itemsList.forEach(item => {
-          if (!item.fc || item.fc === 'F01') {
-            item.status = 'Prepared';
-          }
-        });
-        const pickedCount = adminOrder.itemsList.filter(item => item.status === 'Prepared').length;
-        adminOrder.pickingStatus = `${pickedCount}/${adminOrder.itemsList.length} Picked`;
-      } else {
-        adminOrder.pickingStatus = `${adminOrder.items}/${adminOrder.items} Picked`;
-      }
     });
     broadcastChange();
 

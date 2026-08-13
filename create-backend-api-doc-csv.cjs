@@ -1,0 +1,227 @@
+const fs = require('fs');
+const path = require('path');
+
+const csvHeaders = [
+  "Feature / Status",
+  "Component / Screen Name",
+  "File Name",
+  "File Path",
+  "What Data is Displayed",
+  "Laravel API Endpoint Required",
+  "Where Frontend API Integration Exists",
+  "Expected Request Payload (JSON)",
+  "Expected Response Payload (JSON)",
+  "Backend Notes & Dependencies"
+];
+
+const csvRows = [
+  [
+    "New",
+    "New Orders Table & Tab",
+    "orders.index.tsx / OrderTableRow.tsx",
+    "src/routes/orders.index.tsx & src/components/orders/OrderTableRow.tsx",
+    "Order ID (e.g. HM68233), Customer Name, Customer Email, Customer Phone, Date/Time, Items Count, Total Amount (QAR), Channel (Shopify), City, Shopify Status (Unfulfilled).",
+    "GET /api/v1/orders?status=New\nPOST /api/v1/orders (Create Order)",
+    "src/lib/api/services.ts -> ordersApi.getAll()\nsrc/hooks/useOrders.ts -> useOrders()",
+    "Query Params: { status: 'New', page: 1, per_page: 50, search: '' }",
+    "Response: { success: true, meta: { total: 12, page: 1 }, data: [ { id: 'HM68233', customer: { name: 'Ahmed Al-Malki', email: 'ahmed.malki@example.com', phone: '55998877' }, date: '2026-08-10', time: '14:30', total: 630, status: 'New', shopify_status: 'Unfulfilled' } ] }",
+    "Prerequisite for order lifecycle. Initial order imported from Shopify webhook or created manually via Laravel Admin API."
+  ],
+  [
+    "Picking",
+    "Picking Queue Table & Picker Web App",
+    "picking.tsx / PickingTable.tsx / PickerDashboard.jsx",
+    "src/routes/picking.tsx\nsrc/components/orders/tables/PickingTable.tsx\nroute-my-order/src/pages/picker/PickerDashboard.jsx",
+    "Order ID, Customer Name, Assigned Picker Email/Name, Picked Item Ratio (e.g. '1/2 Picked'), TAT Timer (e.g. '00h 10m'), Zone Location, Item SKU list & shelf bins.",
+    "GET /api/v1/orders?status=Picking\nPOST /api/v1/orders/{id}/assign-picker\nPUT /api/v1/orders/{id}/pick-item\nPUT /api/v1/orders/{id}/complete-picking",
+    "src/lib/api/services.ts -> ordersApi.updatePickingStatus()\nroute-my-order/src/api/orders.js -> pickerApi.pickItem()",
+    "Request (Pick Item): { item_sku: 'SKU-BABY-01', picked_qty: 1, picker_email: 'picker@rmo.qa' }",
+    "Response: { success: true, order_id: 'HM68233', picking_status: '2/2 Picked', status: 'Picked' }",
+    "Updates item inventory state in Laravel DB. Picker Web App in route-my-order polls or listens for WebSocket events."
+  ],
+  [
+    "Picked",
+    "Picked Staging Area",
+    "orders.index.tsx / OrderTableRow.tsx",
+    "src/routes/orders.index.tsx & src/components/orders/OrderTableRow.tsx",
+    "Order ID, Customer Details, Picker Name, Staging Bin Number, Completed Pick Timestamp, Total items picked.",
+    "GET /api/v1/orders?status=Picked\nPUT /api/v1/orders/{id}/move-to-packing",
+    "src/lib/api/services.ts -> ordersApi.updateStatus()\nsrc/hooks/useOrders.ts -> useUpdateOrderStatus()",
+    "Request: { status: 'Packing', staging_bin: 'BIN-B4' }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Packing', packer_id: null }",
+    "Buffer status after picking is complete, awaiting packer barcode scanning."
+  ],
+  [
+    "Packing",
+    "Packing Queue Table & Packer Web App",
+    "packing.tsx / PackingTable.tsx / PackerDashboard.jsx",
+    "src/routes/packing.tsx\nsrc/components/orders/tables/PackingTable.tsx\nroute-my-order/src/pages/packer/PackerDashboard.jsx",
+    "Order ID, Customer Name, Packer Email, Box Size (Small/Medium/Large), Package Weight (kg), Thermal Shipping Label status, Barcode verification status.",
+    "GET /api/v1/orders?status=Packing\nPOST /api/v1/orders/{id}/scan-barcode\nPOST /api/v1/orders/{id}/generate-label\nPUT /api/v1/orders/{id}/complete-packing",
+    "src/lib/api/services.ts -> ordersApi.updatePackingStatus()\nroute-my-order/src/api/orders.js -> packerApi.completePacking()",
+    "Request: { box_type: 'BOX-M', weight_kg: 2.5, packer_email: 'packer@rmo.qa', barcode_verified: true }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Ready to Assign', tracking_number: 'TRK-987654' }",
+    "Packer verifies all SKUs with barcode scanner and prints thermal invoice/shipping label."
+  ],
+  [
+    "Ready to Assign",
+    "Ready Dispatch View & Driver/Zone Dialogs",
+    "ready.tsx / AssignDriverDialog.tsx / AssignZoneDialog.tsx",
+    "src/routes/ready.tsx\nsrc/components/orders/AssignDriverDialog.tsx\nsrc/components/orders/AssignZoneDialog.tsx",
+    "Order ID, Customer Address/City, Delivery Priority, Package Weight, Driver List dropdown (Available vs Busy), Delivery Zone assignment (e.g. Zone A - Doha North).",
+    "GET /api/v1/orders?status=Ready to Assign\nGET /api/v1/drivers/available\nPOST /api/v1/orders/assign-driver (Bulk or Single)\nPOST /api/v1/orders/assign-zone",
+    "src/lib/api/services.ts -> ordersApi.assignDriver()\nsrc/lib/api/services.ts -> ordersApi.assignZone()",
+    "Request: { order_ids: ['HM68233', 'HM68234'], driver_id: 'drv-101', zone_id: 'zone-doha-north' }",
+    "Response: { success: true, assigned_count: 2, driver_name: 'Tariq Mansoor', new_status: 'Ready to Assign' }",
+    "Operations Admin assigns drivers and delivery zones in Laravel backend. Supports single and bulk order selection."
+  ],
+  [
+    "In Delivery (Driver Accepted / Started)",
+    "In Delivery Monitor & Driver Mobile App",
+    "driver.tsx / DriverDashboard.jsx / DriverModals.jsx",
+    "src/routes/driver.tsx\nroute-my-order/src/pages/driver/DriverDashboard.jsx\nroute-my-order/src/pages/driver/DriverModals.jsx",
+    "Order ID, Customer Name & Phone, Address & Google Maps Coordinates, Assigned Driver, Trip Status ('Driver Accepted', 'Started', 'En Route', 'Arrived'), COD Cash Amount to Collect (QAR).",
+    "GET /api/v1/driver/active-orders\nPUT /api/v1/driver/orders/{id}/trip-status\nPOST /api/v1/driver/gps-location",
+    "src/lib/api/services.ts -> driverApi.updateTripStatus()\nroute-my-order/src/api/orders.js -> driverApi.updateStatus()",
+    "Request: { driver_id: 'drv-101', trip_status: 'Started', latitude: 25.2854, longitude: 51.5310 }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Started', updated_at: '2026-08-10T14:35:00Z' }",
+    "Driver mobile app updates state step-by-step (Accepted -> Started -> Arrived). Sends real-time GPS telemetry to Laravel backend."
+  ],
+  [
+    "Delivered",
+    "Delivered History & POD Verification",
+    "delivered.tsx / OrderTableRow.tsx",
+    "src/routes/delivered.tsx\nsrc/components/orders/OrderTableRow.tsx",
+    "Order ID, Customer Details, Driver Name, Delivered Timestamp, Proof of Delivery (Digital Signature URL / Photo POD URL), Payment Method (Prepaid vs COD Cash Collected).",
+    "GET /api/v1/orders?status=Delivered\nPOST /api/v1/orders/{id}/proof-of-delivery\nPOST /api/v1/orders/{id}/confirm-payment",
+    "src/lib/api/services.ts -> ordersApi.markDelivered()\nroute-my-order/src/api/orders.js -> driverApi.completeDelivery()",
+    "Request: { pod_image_url: 'https://...', signature_url: 'https://...', cod_collected_qar: 630 }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Delivered', delivered_at: '2026-08-10T15:10:00Z', payment_status: 'Paid' }",
+    "Final successful delivery state in Laravel database. Triggers SMS notification to customer and updates COD reconciliation."
+  ],
+  [
+    "Delivery Failed / Exceptions",
+    "Flags & Exceptions Resolution Center",
+    "flags.tsx / FlagsTable.tsx",
+    "src/routes/flags.tsx\nsrc/components/orders/tables/FlagsTable.tsx",
+    "Order ID, Customer Details, Driver Name, Failure Reason (Customer Unavailable / Wrong Address / Refused Delivery / Phone Unreachable), Failure Attempt Count, Exception Flag Notes.",
+    "GET /api/v1/orders?status=Delivery Failed\nPOST /api/v1/orders/{id}/retry-delivery\nPOST /api/v1/orders/{id}/reschedule\nPOST /api/v1/orders/{id}/flag-exception",
+    "src/lib/api/services.ts -> ordersApi.flagIssue()\nsrc/hooks/useOrders.ts -> useResolveFlag()",
+    "Request: { action: 'reschedule', new_date: '2026-08-11', notes: 'Customer requested delivery tomorrow morning' }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Ready to Assign', rescheduled_date: '2026-08-11' }",
+    "Handles failed delivery attempts in Laravel. Operations admin can retry, reschedule, or return order to warehouse stock."
+  ],
+  [
+    "Cancelled",
+    "Cancelled Orders Archive",
+    "orders.index.tsx / OrderTableRow.tsx",
+    "src/routes/orders.index.tsx & src/components/orders/OrderTableRow.tsx",
+    "Order ID, Customer Details, Cancellation Date & Time, Cancelled By (Customer / Admin / System), Cancellation Reason (Out of Stock / Customer Request / Payment Issue), Refund Status.",
+    "GET /api/v1/orders?status=Cancelled\nPOST /api/v1/orders/{id}/cancel",
+    "src/lib/api/services.ts -> ordersApi.cancelOrder()\nsrc/hooks/useOrders.ts -> useCancelOrder()",
+    "Request: { reason: 'Customer requested cancellation', cancelled_by: 'admin@halamama.com', initiate_refund: true }",
+    "Response: { success: true, order_id: 'HM68233', status: 'Cancelled', refund_id: 'RF-99882' }",
+    "Cancels fulfillment job in Laravel, updates stock levels, and executes payment gateway refund if prepaid."
+  ],
+  [
+    "Returns & Replacements / Exchange",
+    "Returns Management Console",
+    "returns.tsx / ReturnsTable.tsx",
+    "src/routes/returns.tsx\nsrc/components/orders/tables/ReturnsTable.tsx",
+    "Order ID, Customer Name, Return Type ('Return' / 'Replacement' / 'Exchange'), Return Reason, Item condition, Reverse Pickup Driver, Exchange SKU, Return Approval Status.",
+    "GET /api/v1/returns\nPOST /api/v1/returns\nPUT /api/v1/returns/{id}/approve\nPOST /api/v1/returns/{id}/assign-driver",
+    "src/lib/api/services.ts -> returnsApi.getAll()\nsrc/hooks/useOrders.ts -> useCreateReturn()",
+    "Request: { original_order_id: 'HM68233', return_type: 'Replacement', items: [{ sku: 'SKU-001', qty: 1 }], driver_id: 'drv-102' }",
+    "Response: { success: true, return_id: 'RET-44331', status: 'Reverse Pickup Assigned' }",
+    "Laravel backend manages reverse logistics workflow and creates driver return pickup assignments."
+  ],
+  [
+    "PayLater / COD Credit Settlement",
+    "PayLater Orders Table Filter",
+    "orders.index.tsx / OrderTableRow.tsx",
+    "src/routes/orders.index.tsx & src/components/orders/OrderTableRow.tsx",
+    "Order ID, Customer Name, Credit Limit / PayLater Balance, Payment Due Date, Payment Status ('Unpaid' / 'Partially Paid' / 'Paid'), Collection Admin.",
+    "GET /api/v1/orders?payment_type=PayLater\nPOST /api/v1/orders/{id}/collect-payment",
+    "src/lib/api/services.ts -> ordersApi.updatePayment()\nsrc/hooks/useOrders.ts -> useUpdatePayment()",
+    "Request: { payment_method: 'Bank Transfer', amount_collected: 630, reference_no: 'TXN-77661' }",
+    "Response: { success: true, order_id: 'HM68233', payment_status: 'Paid', remaining_balance: 0 }",
+    "Tracks credit terms and payment collection for corporate accounts in Laravel finance database."
+  ],
+  [
+    "Installation Orders",
+    "Installation & Technical Services Queue",
+    "orders.index.tsx / OrderTableRow.tsx",
+    "src/routes/orders.index.tsx & src/components/orders/OrderTableRow.tsx",
+    "Order ID, Customer Address, Assigned Technician / Installer, Scheduled Installation Date/Time, Installation Status ('Pending' / 'In Progress' / 'Completed'), Customer Sign-off.",
+    "GET /api/v1/orders?type=Installation\nPOST /api/v1/orders/{id}/assign-technician\nPUT /api/v1/orders/{id}/installation-status",
+    "src/lib/api/services.ts -> ordersApi.assignTechnician()\nsrc/hooks/useOrders.ts -> useUpdateInstallation()",
+    "Request: { technician_id: 'tech-005', scheduled_slot: '2026-08-11T10:00:00Z' }",
+    "Response: { success: true, order_id: 'HM68233', technician_name: 'Youssef Al-Kuwari', status: 'Installation Scheduled' }",
+    "Special order category in Laravel for items requiring technician home installation alongside delivery."
+  ],
+  [
+    "Scheduled Orders & Calendar",
+    "Scheduled Dispatch & Team Calendars",
+    "scheduled.tsx / calendars.tsx / ScheduledList.tsx",
+    "src/routes/scheduled.tsx\nsrc/routes/calendars.tsx\nsrc/components/scheduled/ScheduledList.tsx",
+    "Order ID, Future Delivery Date, Delivery Time Window (e.g. 14:00 - 18:00), Team/Location Filter ('All Teams', 'Doha Central', 'Al Rayyan'), Appointment slots capacity.",
+    "GET /api/v1/scheduled-orders\nGET /api/v1/calendar/events\nPUT /api/v1/orders/{id}/reschedule-slot",
+    "src/lib/api/services.ts -> scheduledApi.getCalendarEvents()\nsrc/hooks/useOrders.ts -> useCalendarEvents()",
+    "Request: Query Params: { start_date: '2026-08-10', end_date: '2026-08-17', team_id: 'all' }",
+    "Response: { success: true, events: [ { id: 'HM68233', title: 'HM68233 - Ahmed Al-Malki', start: '2026-08-10 14:30', end: '2026-08-10 16:30', team: 'Team Alpha' } ] }",
+    "Supports 'All Teams' aggregate view in frontend calendar component."
+  ],
+  [
+    "Order Comments & Admin Audit Notes",
+    "Interactive Comment Cell & Popover",
+    "OrderTableRow.tsx / sync.ts / services.ts",
+    "src/components/orders/OrderTableRow.tsx\nsrc/lib/sync.ts\nsrc/lib/api/services.ts",
+    "Order Comment Text, Editor Admin Email (`edited_by`), Timestamp (`edited_at`), Comment Badge indicator in table row.",
+    "PUT /api/v1/orders/{id}/comment\nDELETE /api/v1/orders/{id}/comment",
+    "src/lib/api/services.ts -> ordersApi.updateOrderComment()\nsrc/lib/api/services.ts -> ordersApi.deleteOrderComment()\nsrc/hooks/useOrders.ts -> useUpdateOrderComment()",
+    "Request (Update): { comment: 'Customer requested calling before delivery', admin_email: 'admin@halamama.com' }",
+    "Response: { success: true, order_id: 'HM68233', comment: 'Customer requested calling before delivery', edited_by: 'admin@halamama.com', edited_at: '2026-08-10T17:24:00Z' }",
+    "Updates order comment in Laravel `order_comments` table or `orders` table column. Frontend displays popover editor badge."
+  ],
+  [
+    "Thermal Invoices & PDF Export",
+    "Thermal Receipt & Export Dialogs",
+    "PrintInvoiceDialog.tsx / ViewExportDialog.tsx / reports.tsx",
+    "src/components/orders/PrintInvoiceDialog.tsx\nsrc/components/orders/ViewExportDialog.tsx\nsrc/routes/reports.tsx",
+    "Printable thermal receipt format (80mm), Line items, VAT breakdown (5%), Payment mode, Barcode, CSV/Excel export filter options.",
+    "GET /api/v1/orders/{id}/invoice-pdf\nGET /api/v1/exports/orders-csv",
+    "src/lib/api/services.ts -> ordersApi.getInvoicePdf()\nsrc/lib/api/services.ts -> exportsApi.downloadCsv()",
+    "Request: Query Params: { format: 'thermal' }",
+    "Response: Binary PDF stream or CSV file download",
+    "Laravel controller generates PDF stream or exports CSV file."
+  ],
+  [
+    "System Master Data & Roster",
+    "Locations, Warehouses, Users & Driver Master",
+    "locations.tsx / warehouses.tsx / users.tsx",
+    "src/routes/locations.tsx\nsrc/routes/warehouses.tsx\nsrc/routes/users.tsx",
+    "List of Warehouses, Bins, Delivery Zones, Operations Admins, Pickers, Packers, Drivers Roster, Active/Inactive Status.",
+    "GET /api/v1/locations\nGET /api/v1/warehouses\nGET /api/v1/users\nPOST /api/v1/users",
+    "src/lib/api/services.ts -> masterDataApi.getLocations()\nsrc/lib/api/services.ts -> masterDataApi.getUsers()",
+    "Request: Query Params: { role: 'driver', status: 'active' }",
+    "Response: { success: true, data: [ { id: 'drv-101', name: 'Tariq Mansoor', phone: '55112233', status: 'Active', zone: 'Doha North' } ] }",
+    "Laravel backend returns master data lists for driver dropdowns, warehouse stock bins, and user roles."
+  ]
+];
+
+function escapeCsvCell(cell) {
+  if (typeof cell !== 'string') cell = String(cell);
+  if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+    return '"' + cell.replace(/"/g, '""') + '"';
+  }
+  return cell;
+}
+
+const csvData = [csvHeaders, ...csvRows];
+// Add UTF-8 BOM so Google Sheets & Excel render Arabic characters cleanly
+const csvContent = "\uFEFF" + csvData.map(row => row.map(escapeCsvCell).join(",")).join("\n");
+const outputPath = path.join(__dirname, 'Backend_API_Integration_Documentation.csv');
+
+fs.writeFileSync(outputPath, csvContent, 'utf8');
+console.log(`✅ Laravel-formatted Backend API Integration Documentation CSV updated successfully at:\n${outputPath}`);
+console.log(`Total rows generated: ${csvRows.length}`);

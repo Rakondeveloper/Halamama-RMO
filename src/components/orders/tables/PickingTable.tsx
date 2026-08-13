@@ -1,10 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { getOrderItemsCount, getDisplayTat, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
+import { approveOrderForPicking } from "@/lib/api/services";
 import { cn } from "@/lib/utils";
-import { Eye, Package } from "lucide-react";
+import { Eye, Package, ShieldCheck } from "lucide-react";
 import { CrewTag } from "../CrewTag";
 import { Button } from "@/components/ui/button";
 import { DeliveryDateCell } from "../DeliveryDateCell";
+import { toast } from "sonner";
 
 export function PickingTable({
   orders,
@@ -103,15 +105,31 @@ export function PickingTable({
                   </span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  {order.picker ? (
-                    <CrewTag
-                      name={getPickerDisplayName(order.picker)}
-                      Icon={Package}
-                      color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
+                  {(() => {
+                    const itemPickers = order.itemsList
+                      ? Array.from(new Set(order.itemsList.map(i => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null)).filter((p): p is string => Boolean(p))))
+                      : [];
+                    const pickersToDisplay = itemPickers.length > 0 
+                      ? itemPickers 
+                      : (order.picker ? order.picker.split(",").map(p => getPickerDisplayName(p.trim())) : []);
+
+                    if (pickersToDisplay.length === 0) {
+                      return <span className="text-xs text-muted-foreground">—</span>;
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {pickersToDisplay.map((pName, idx) => (
+                          <CrewTag
+                            key={idx}
+                            name={pName}
+                            Icon={Package}
+                            color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="py-3 pr-4 align-middle text-right">
                   <Button
