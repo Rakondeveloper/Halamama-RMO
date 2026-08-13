@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
-import { MOCK_ORDERS, type Order } from "@/lib/orders";
+import { MOCK_ORDERS, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
 import { getSharedOrders } from "@/lib/sync";
 import { cn } from "@/lib/utils";
 import {
@@ -150,7 +150,7 @@ function getPickerHeaders() {
 }
 function getPickerRow(o: Order): string[] {
   const isPicked = !["New", "Cancelled"].includes(o.status);
-  const picker = o.picker || (isPicked ? "noushad" : "-");
+  const picker = getPickerDisplayName(o.picker) || (isPicked ? "noushad" : "-");
   const pickedAt = picker !== "-" ? addMinutes(o.date, o.time, 25) : "-";
   return [
     o.id,
@@ -169,7 +169,7 @@ function getPackerHeaders() {
 }
 function getPackerRow(o: Order): string[] {
   const isPacked = ["Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(o.status);
-  const packer = o.packer || (isPacked ? "mashood" : "-");
+  const packer = getUserDisplayName(o.packer) || (isPacked ? "mashood" : "-");
   const packedAt = packer !== "-" ? addMinutes(o.date, o.time, 42) : "-";
   return [
     o.id,
@@ -205,7 +205,7 @@ function getDriverHeaders() {
 }
 function getDriverRow(o: Order): string[] {
   const hasDriver = ["Driver Accepted", "Started", "Delivered", "Delivery Failed"].includes(o.status) || !!o.driver;
-  const driver = o.driver || (hasDriver ? "mwd_shambu" : "-");
+  const driver = getUserDisplayName(o.driver) || (hasDriver ? "mwd_shambu" : "-");
   const tripStarted = driver !== "-" ? addMinutes(o.date, o.time, 58) : "-";
   const deliveredAt = o.status === "Delivered" && driver !== "-" ? addMinutes(o.date, o.time, 92) : "-";
   const failedAt = o.status === "Delivery Failed" && driver !== "-" ? addMinutes(o.date, o.time, 105) : "-";

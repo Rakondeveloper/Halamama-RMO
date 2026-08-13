@@ -10,7 +10,7 @@
  * ╚═══════════════════════════════════════════════════════════════════════════════╝
  */
 
-import { MOCK_ORDERS, getEnrichedOrder, type Order, type OrderTimelineEvent } from "@/lib/orders";
+import { MOCK_ORDERS, getEnrichedOrder, getPickerDisplayName, getUserDisplayName, type Order, type OrderTimelineEvent } from "@/lib/orders";
 import { getSharedOrders } from "@/lib/sync";
 import { evaluateSla, summarizeSla } from "./sla-evaluator";
 import { parseOrderDateTime } from "./business-time";
@@ -218,9 +218,9 @@ function computeOrderMetrics(order: Order): MisOrderMetrics | null {
     picking: pickingEval,
     packing: packingEval,
     delivery: deliveryEval,
-    pickerName: order.picker,
-    packerName: order.packer,
-    driverName: order.driver,
+    pickerName: getPickerDisplayName(order.picker),
+    packerName: getUserDisplayName(order.packer),
+    driverName: getUserDisplayName(order.driver),
     operationalGaps: {
       pickToPackMinutes,
       packToDriverMinutes,

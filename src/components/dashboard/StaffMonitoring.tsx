@@ -31,6 +31,7 @@ export function StaffMonitoring({ orders }: StaffMonitoringProps) {
           if (!assignee) return false;
           return (
             assignee === u.name ||
+            assignee === u.email ||
             assignee === u.email.split("@")[0] ||
             assignee.toLowerCase() === u.name.toLowerCase()
           );

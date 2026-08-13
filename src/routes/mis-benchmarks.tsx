@@ -19,6 +19,7 @@ import { formatDuration, formatDurationCompact } from "@/lib/mis/sla-config";
 import { formatOvershoot } from "@/lib/mis/sla-evaluator";
 import type { MisSummary, SlaSummary, DelayedOrderEntry, MisFilters } from "@/lib/mis/mis-types";
 import type { SlaType } from "@/lib/mis/sla-config";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/mis-benchmarks")({
   head: () => ({
@@ -379,8 +380,14 @@ function MisBenchmarksPage() {
   );
 
   const handleRefresh = async () => {
-    await refetch();
-    setRefreshKey((k) => k + 1);
+    const toastId = toast.info("Refreshing benchmarks...");
+    try {
+      await refetch();
+      setRefreshKey((k) => k + 1);
+      toast.success("Benchmarks refreshed", { id: toastId });
+    } catch (e) {
+      toast.error("Failed to refresh benchmarks", { id: toastId });
+    }
   };
 
   return (

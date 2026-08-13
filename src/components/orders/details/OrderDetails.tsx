@@ -32,7 +32,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
           <Skeleton className="h-9 w-9 rounded-xl" />
           <Skeleton className="h-4 w-32" />
         </div>
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex min-w-0 flex-col gap-6">
             <Skeleton className="h-48 rounded-2xl" />
             <Skeleton className="h-64 rounded-2xl" />
@@ -90,7 +90,7 @@ export function OrderDetails({ orderId }: { orderId: string }) {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left Column: Main Content */}
         <div className="flex min-w-0 flex-col gap-6">
           <OrderHeader order={order} />

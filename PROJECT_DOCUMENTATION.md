@@ -48,6 +48,8 @@ The HalaMama platform handles the transition of an order from a digital sales tr
 3. **Scheduled Installations Module (Admin)**: Holds products flagged by pickers as needing installer routing, facilitating bulk driver assignment.
 4. **Operations Portal (RMO Mobile App)**: Handheld user interfaces for Pickers, Packers, and Drivers.
 5. **Warehouse Terminal & Reports (Admin)**: Generates performance files for warehouse productivity auditing.
+6. **Backend API Integration Documentation (Spreadsheet)**: Comprehensive mapping of all 16 order statuses, components, request/response data contracts, and integration points for backend developers (`Backend_API_Integration_Documentation.csv`).
+
 
 ### Main Actors/Users
 * **Warehouse Manager (Admin)**: Oversees KPIs, handles exceptions, assigns drivers, processes returns, manages warehouses, and exports performance data.

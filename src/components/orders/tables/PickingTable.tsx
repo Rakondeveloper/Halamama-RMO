@@ -1,9 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, type Order } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
+import { approveOrderForPicking } from "@/lib/api/services";
 import { cn } from "@/lib/utils";
-import { Eye, Package } from "lucide-react";
+import { Eye, Package, ShieldCheck } from "lucide-react";
 import { CrewTag } from "../CrewTag";
 import { Button } from "@/components/ui/button";
+import { DeliveryDateCell } from "../DeliveryDateCell";
+import { toast } from "sonner";
 
 export function PickingTable({
   orders,
@@ -40,6 +43,7 @@ export function PickingTable({
             <th className="py-3 pl-4 pr-3 font-semibold">Order</th>
             <th className="py-3 pr-3 font-semibold">TAT</th>
             <th className="py-3 pr-3 font-semibold">Date & Time</th>
+            <th className="py-3 pr-3 font-semibold">Delivery Date</th>
             <th className="py-3 pr-3 font-semibold">Customer</th>
             <th className="py-3 pr-3 font-semibold">Items</th>
             <th className="py-3 pr-3 font-semibold">Picking Status</th>
@@ -49,20 +53,27 @@ export function PickingTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Picking");
+            const tatClass = tatColorClass(displayTat);
             return (
               <tr
                 key={order.id}
                 className="border-b border-border/70 transition-colors hover:bg-muted/35"
               >
                 <td className="py-3 pl-4 pr-3 align-middle">
-                  <span className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer">
+                  <span
+                    className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewOrder(order);
+                    }}
+                  >
                     {order.id}
                   </span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">
@@ -71,6 +82,9 @@ export function PickingTable({
                       📅 {order.date} | {order.time}
                     </span>
                   </div>
+                </td>
+                <td className="whitespace-nowrap py-3 pr-3 align-middle">
+                  <DeliveryDateCell order={order} />
                 </td>
                 <td className="max-w-[220px] py-3 pr-3 align-middle">
                   <div className="min-w-0">
@@ -91,15 +105,31 @@ export function PickingTable({
                   </span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
-                  {order.picker ? (
-                    <CrewTag
-                      name={order.picker}
-                      Icon={Package}
-                      color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
+                  {(() => {
+                    const itemPickers = order.itemsList
+                      ? Array.from(new Set(order.itemsList.map(i => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null)).filter((p): p is string => Boolean(p))))
+                      : [];
+                    const pickersToDisplay = itemPickers.length > 0 
+                      ? itemPickers 
+                      : (order.picker ? order.picker.split(",").map(p => getPickerDisplayName(p.trim())) : []);
+
+                    if (pickersToDisplay.length === 0) {
+                      return <span className="text-xs text-muted-foreground">—</span>;
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {pickersToDisplay.map((pName, idx) => (
+                          <CrewTag
+                            key={idx}
+                            name={pName}
+                            Icon={Package}
+                            color="bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="py-3 pr-4 align-middle text-right">
                   <Button
@@ -118,7 +148,7 @@ export function PickingTable({
           })}
           {orders.length === 0 && (
             <tr>
-              <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+              <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                 No orders found.
               </td>
             </tr>

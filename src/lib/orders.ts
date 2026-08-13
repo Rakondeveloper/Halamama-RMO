@@ -168,7 +168,12 @@ export interface Order {
   /** Detailed return/replacement items for this order. */
   returnItems?: OrderReturn[];
   city: string;
-  coordinator: string;
+  coordinator?: string;
+  comment?: string;
+  commentMeta?: {
+    editedBy: string;
+    editedAt: string;
+  };
   driver: string | null;
   driverStatus?: string | null;
   picker: string | null;
@@ -177,6 +182,9 @@ export interface Order {
   shopify: "Fulfilled" | "Unfulfilled" | "Pending";
   pickingStatus?: string;
   packingStatus?: string;
+  isApprovedForPicking?: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
   bags?: number;
   tags?: string[];
   deliveryDate?: string;
@@ -188,6 +196,8 @@ export interface Order {
   lng?: number;
   itemsList?: OrderItemType[];
   zone?: string;
+  stageArrivedAt?: Record<string, string>;
+  stageTat?: Record<string, string>;
 }
 
 export type ItemFulfillmentType = "FC" | "MWH" | "VL_SUPPLIER" | "VL_HMA";
@@ -203,7 +213,13 @@ export interface OrderItemType {
   fc: string;
   fcName: string;
   bin: string;
-  status: "Prepared" | "Accepted" | "Allocated" | "Pending";
+  status: "Prepared" | "Accepted" | "Allocated" | "Pending" | "Picked";
+  /** Whether Operations Admin has approved this item for picking */
+  isApproved?: boolean;
+  /** Email of the picker assigned to / who picked this item */
+  pickedBy?: string;
+  /** Display name of the picker */
+  pickerName?: string;
   /**
    * Fulfillment type for this item:
    * - FC: standard fulfillment center item (normal delivery flow)
@@ -218,6 +234,12 @@ export interface OrderItemType {
   scheduledAt?: string;
   /** Driver/installer assigned for the installation */
   installationDriver?: string | null;
+  /** Location ID for vendor location items */
+  locationId?: string;
+  /** Product / Hardware Serial Number (e.g., SN-9350764006338) */
+  serialNumber?: string;
+  /** Individual unit serial numbers when qty > 1 */
+  unitSerialNumbers?: string[];
 }
 
 export type ReturnStatus = "pending" | "picked up" | "completed";
@@ -486,12 +508,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 10. Picker assigned ────────────────────────────────────────────────────
   if (hasPicker) {
+    const pickerName = getPickerDisplayName(base.picker);
     ev.push({
       id: "tl-picker-assigned",
-      title: `Picker assigned: ${base.picker} at ${fcName}`,
+      title: `Picker assigned: ${pickerName} at ${fcName}`,
       ...t5,
-      description: `By: ${base.picker} · ${fcName} (${fcCode})`,
-      actor: base.picker!,
+      description: `By: ${pickerName} · ${fcName} (${fcCode})`,
+      actor: pickerName,
       actorRole: "picker",
       facility: `${fcName} (${fcCode})`,
       hasRawDetails: true,
@@ -502,10 +525,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     itemNames.forEach((_, i) => {
       ev.push({
         id: `tl-item-picked-${i}`,
-        title: `Item picked (qty: 1) by ${base.picker}`,
+        title: `Item picked (qty: 1) by ${pickerName}`,
         ...fmt(base.date, base.time, 5 + i + 1),
-        description: `By: ${base.picker}`,
-        actor: base.picker!,
+        description: `By: ${pickerName}`,
+        actor: pickerName,
         actorRole: "picker",
         hasRawDetails: true,
         type: "item_picked",
@@ -515,10 +538,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     // ── 12. Picking completed ──────────────────────────────────────────────
     ev.push({
       id: "tl-pick-end",
-      title: `Picking completed by ${base.picker}`,
+      title: `Picking completed by ${pickerName}`,
       ...t8,
-      description: `By: ${base.picker}`,
-      actor: base.picker!,
+      description: `By: ${pickerName}`,
+      actor: pickerName,
       actorRole: "picker",
       hasRawDetails: true,
       type: "picking_completed",
@@ -536,12 +559,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 13. Packer assigned ────────────────────────────────────────────────────
   if (hasPacker) {
+    const packerName = getUserDisplayName(base.packer);
     ev.push({
       id: "tl-packer-assigned",
-      title: `Packer assigned: ${base.packer} at ${fcName}`,
+      title: `Packer assigned: ${packerName} at ${fcName}`,
       ...t15,
-      description: `By: ${base.packer} · ${fcName} (${fcCode})`,
-      actor: base.packer!,
+      description: `By: ${packerName} · ${fcName} (${fcCode})`,
+      actor: packerName,
       actorRole: "packer",
       facility: `${fcName} (${fcCode})`,
       type: "packer_assigned",
@@ -551,10 +575,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     itemNames.forEach((_, i) => {
       ev.push({
         id: `tl-item-packed-${i}`,
-        title: `Item packed (qty: 1) by ${base.packer}`,
+        title: `Item packed (qty: 1) by ${packerName}`,
         ...fmt(base.date, base.time, 15 + i + 1),
-        description: `By: ${base.packer}`,
-        actor: base.packer!,
+        description: `By: ${packerName}`,
+        actor: packerName,
         actorRole: "packer",
         hasRawDetails: true,
         type: "item_packed",
@@ -565,10 +589,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     const bags = base.bags ?? 1;
     ev.push({
       id: "tl-pack-end",
-      title: `Packing completed — ${bags} bag(s) by ${base.packer}`,
+      title: `Packing completed — ${bags} bag(s) by ${packerName}`,
       ...t20,
-      description: `By: ${base.packer}`,
-      actor: base.packer!,
+      description: `By: ${packerName}`,
+      actor: packerName,
       actorRole: "packer",
       hasRawDetails: true,
       metadata: { bags: String(bags) },
@@ -587,25 +611,26 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 16. Driver assigned ────────────────────────────────────────────────────
   if (hasDriver) {
-    const assigner = base.coordinator !== "-" ? base.coordinator : "suhail_halamama";
+    const assigner = base.commentMeta?.editedBy || (base.coordinator && base.coordinator !== "-" ? base.coordinator : "suhail_halamama");
+    const driverName = getUserDisplayName(base.driver);
     ev.push({
       id: "tl-drv-assign",
-      title: `Driver assigned: ${base.driver} by ${assigner}`,
+      title: `Driver assigned: ${driverName} by ${assigner}`,
       ...t25,
-      description: `By: ${assigner} · Driver: ${base.driver}\nDriver assigned internally (forced)`,
+      description: `By: ${assigner} · Driver: ${driverName}\nDriver assigned internally (forced)`,
       actor: assigner,
       actorRole: "admin",
-      metadata: { driver: base.driver!, method: "internally (forced)" },
+      metadata: { driver: driverName, method: "internally (forced)" },
       type: "driver_assigned",
     });
 
     // ── 17. Bags verified ──────────────────────────────────────────────────
     ev.push({
       id: "tl-bags-verified",
-      title: `Bags verified by ${base.driver}`,
+      title: `Bags verified by ${driverName}`,
       ...t35,
-      description: `By: ${base.driver}\nDriver verified bags match & count`,
-      actor: base.driver!,
+      description: `By: ${driverName}\nDriver verified bags match & count`,
+      actor: driverName,
       actorRole: "driver",
       type: "bags_verified",
     });
@@ -614,10 +639,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     if (isDelivered || isActive) {
       ev.push({
         id: "tl-started",
-        title: `Driver ${base.driver} started trip`,
+        title: `Driver ${driverName} started trip`,
         ...t35,
-        description: `By: ${base.driver}`,
-        actor: base.driver!,
+        description: `By: ${driverName}`,
+        actor: driverName,
         actorRole: "driver",
         type: "started",
       });
@@ -626,13 +651,14 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
 
   // ── 19–25. Delivered + post-delivery automation ─────────────────────────────
   if (isDelivered) {
+    const driverName = getUserDisplayName(base.driver);
     // Delivery event
     ev.push({
       id: "tl-delivered",
-      title: `Order delivered by ${base.driver}`,
+      title: `Order delivered by ${driverName}`,
       ...t58,
-      description: `By: ${base.driver}`,
-      actor: base.driver!,
+      description: `By: ${driverName}`,
+      actor: driverName,
       actorRole: "driver",
       type: "delivered",
     });
@@ -640,10 +666,10 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
     // Delivered (with payment details)
     ev.push({
       id: "tl-delivered-payment",
-      title: `Order delivered by ${base.driver}`,
+      title: `Order delivered by ${driverName}`,
       ...t58,
-      description: `By: ${base.driver}\nPayment: cash (Amount: ${base.total})`,
-      actor: base.driver!,
+      description: `By: ${driverName}\nPayment: cash (Amount: ${base.total})`,
+      actor: driverName,
       actorRole: "driver",
       metadata: { paymentMethod: "cash", paymentAmount: String(base.total) },
       type: "delivered",
@@ -744,8 +770,13 @@ function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEv
   return ev;
 }
 
-/** Get mock order items list dynamically based on order ID and item count. */
-export function getMockOrderItems(id: string, totalItems: number): OrderItemType[] {
+/** Get mock order items list dynamically based on order ID, item count, order status, and picking status. */
+export function getMockOrderItems(
+  id: string,
+  totalItems: number,
+  orderStatus?: string,
+  pickingStatus?: string
+): OrderItemType[] {
   let itemsList: OrderItemType[] = [];
 
   if (id === "HM99005") {
@@ -978,6 +1009,8 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "picker@rmo.qa",
+        pickerName: "Ahmed Khalil",
       },
       {
         id: "vl-item-4",
@@ -993,7 +1026,83 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "nijad@rmo.qa",
+        pickerName: "Nijad",
       },
+    ];
+  } else if (id === "HM68233") {
+    itemsList = [
+      {
+        id: "item-68233-1",
+        name: "Frida Baby Saline Spray",
+        sku: "NS-SPNC-1P-0200",
+        barcode: "9350764006338",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 31.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-252 / 4",
+        status: "Prepared",
+      },
+      {
+        id: "item-68233-2",
+        name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+        sku: "5021933",
+        barcode: "9350764006339",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 599.0,
+        fc: "F01",
+        fcName: "Fulfillment Center Hilal",
+        bin: "B-100 / 1",
+        status: "Allocated",
+      }
+    ];
+  } else if (id === "HM99010") {
+    itemsList = [
+      { id: "dummy-10-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Pending" },
+      { id: "dummy-10-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Pending" },
+      { id: "dummy-10-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+      { id: "dummy-10-4", name: "Bestway Apx 365 Round Pool Set (12' x 30\")", sku: "561KC", barcode: "56100000002", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 799.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-300 / 5", status: "Pending" },
+    ];
+  } else if (id === "HM99011") {
+    itemsList = [
+      { id: "dummy-11-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Pending", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-11-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Pending" },
+      { id: "dummy-11-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+    ];
+  } else if (id === "HM99012") {
+    itemsList = [
+      { id: "dummy-12-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-12-2", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+    ];
+  } else if (id === "HM99013") {
+    itemsList = [
+      { id: "dummy-13-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-13-2", name: "Wet Wipes 3-Pack", sku: "HM-1100", barcode: "HM11000001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 29.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-101 / 2", status: "Prepared", pickedBy: "nijad@rmo.qa", pickerName: "Nijad" },
+      { id: "dummy-13-3", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Pending" },
+    ];
+  } else if (id === "HM99014") {
+    itemsList = [
+      { id: "dummy-14-1", name: "Frida Baby Saline Spray", sku: "NS-SPNC-1P-0200", barcode: "072239306390", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 31.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-252 / 4", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+      { id: "dummy-14-2", name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)", sku: "5021933", barcode: "502193300001", image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop", qty: 1, price: 599.0, fc: "F01", fcName: "Fulfillment Center Hilal", bin: "B-100 / 1", status: "Prepared", pickedBy: "picker@rmo.qa", pickerName: "Ahmed Khalil" },
+    ];
+  } else if (id === "HM68234") {
+    itemsList = [
+      {
+        id: "item-68234-1",
+        name: "Stokke Tripp Trapp High Chair (Oak)",
+        sku: "ST-TTHC-OAK",
+        barcode: "STTTHCOAK001",
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=100&h=100&fit=crop",
+        qty: 1,
+        price: 1199.0,
+        fc: "VL_HMA",
+        fcName: "Vendor Location 1",
+        bin: "V-02",
+        status: "Prepared",
+      }
     ];
   } else {
     const totalItemsCount = totalItems || 1;
@@ -1151,17 +1260,42 @@ export function getMockOrderItems(id: string, totalItems: number): OrderItemType
     } catch { }
   }
 
-  return itemsList.map((item) => {
-    if (cancelledItemIds.includes(item.id)) {
-      return { ...item, status: "Pending" as const };
+  // Check if order status implies fully picked or parse pickingStatus count
+  const isPostPickedStage = orderStatus && ["Picked", "Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(orderStatus);
+
+  let targetPickedCount = -1;
+  if (isPostPickedStage) {
+    targetPickedCount = itemsList.length;
+  } else if (pickingStatus) {
+    const match = pickingStatus.match(/^(\d+)\/(\d+)/);
+    if (match) {
+      targetPickedCount = parseInt(match[1], 10);
     }
-    return item as OrderItemType;
+  }
+
+  return itemsList.map((item, index) => {
+    const serialNumber = item.serialNumber || (item.barcode ? `SN-${item.barcode}` : `SN-${id}-${index + 1}`);
+    let status = item.status;
+
+    if (cancelledItemIds.includes(item.id)) {
+      status = "Pending" as const;
+    } else if (targetPickedCount >= itemsList.length) {
+      status = "Prepared" as const;
+    } else if (targetPickedCount >= 0) {
+      status = index < targetPickedCount ? ("Prepared" as const) : ("Allocated" as const);
+    }
+
+    return {
+      ...item,
+      serialNumber,
+      status,
+    } as OrderItemType;
   });
 }
 
 /** Get mock order total dynamically based on its items and payment information. */
-export function getMockOrderTotal(id: string, totalItems: number, payment?: any): number {
-  const itemsList = getMockOrderItems(id, totalItems);
+export function getMockOrderTotal(id: string, totalItems: number, payment?: any, orderStatus?: string, pickingStatus?: string): number {
+  const itemsList = getMockOrderItems(id, totalItems, orderStatus, pickingStatus);
   const subtotal = itemsList.reduce((sum, item) => sum + item.price * item.qty, 0);
   const discount = payment?.discount ?? 0;
   const shipping = payment?.shipping ?? 0;
@@ -1173,8 +1307,10 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
   const baseOrder = MOCK_ORDERS.find((o) => o.id === id);
   if (!baseOrder) return undefined;
 
-  const itemsList = getMockOrderItems(id, baseOrder.items);
-  const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment);
+  const itemsList = baseOrder.itemsList && baseOrder.itemsList.length > 0
+    ? baseOrder.itemsList
+    : getMockOrderItems(id, baseOrder.items, baseOrder.status, baseOrder.pickingStatus);
+  const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment, baseOrder.status, baseOrder.pickingStatus);
 
   return {
     ...baseOrder,
@@ -1188,21 +1324,21 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
       ...baseOrder.payment,
       subtotal: calculatedTotal - (baseOrder.payment.shipping ?? 0) + (baseOrder.payment.discount ?? 0),
       total: calculatedTotal,
-      balance: (baseOrder as any).paymentBalance !== undefined 
-        ? (baseOrder as any).paymentBalance 
+      balance: (baseOrder as any).paymentBalance !== undefined
+        ? (baseOrder as any).paymentBalance
         : (calculatedTotal - (baseOrder.payment.totalPaid ?? 0)),
-      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined 
-        ? (baseOrder as any).paymentBalance 
+      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined
+        ? (baseOrder as any).paymentBalance
         : (baseOrder.payment.balance ?? 0)),
     } : {
       method: ((baseOrder as any).paymentMethod as any) || "Cash",
+      total: calculatedTotal,
       totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance ?? 0),
       cash: ((baseOrder as any).paymentMethod || "Cash") === "Cash" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
       card: ((baseOrder as any).paymentMethod || "Cash") === "Card" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
       subtotal: calculatedTotal - 10,
       discount: 0,
       shipping: 10,
-      total: calculatedTotal,
       balance: ((baseOrder as any).paymentBalance ?? 0),
       shippingMethod: "Standard Delivery",
     },
@@ -1278,10 +1414,195 @@ export const ACTIVE_STATUSES: OrderStatus[] = [
 
 export const MOCK_ORDERS: Order[] = [
   {
+    id: "HM99010",
+    customerId: "cust-99010",
+    tat: "00h 10m",
+    date: getTodayDateString(),
+    time: "14:15",
+    customer: { name: "Mariam Al-Kabi", email: "mariam.kabi@example.com", phone: "33881122" },
+    channel: "shopify",
+    items: 4,
+    status: "New",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: null,
+    packer: null,
+    total: 1458,
+    shopify: "Unfulfilled",
+    pickingStatus: "0/4 Picked",
+    packingStatus: "0/4 Packed",
+    bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99011",
+    customerId: "cust-99011",
+    tat: "00h 15m",
+    date: getTodayDateString(),
+    time: "14:30",
+    customer: { name: "Tariq Al-Mansoori", email: "tariq.mansoori@example.com", phone: "55441199" },
+    channel: "shopify",
+    items: 3,
+    status: "Picking",
+    city: "West Bay",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 659,
+    shopify: "Unfulfilled",
+    pickingStatus: "0/3 Picked",
+    packingStatus: "0/3 Packed",
+    bags: 0,
+    lat: 25.3286,
+    lng: 51.5310,
+  },
+  {
+    id: "HM99012",
+    customerId: "cust-99012",
+    tat: "00h 20m",
+    date: getTodayDateString(),
+    time: "14:45",
+    customer: { name: "Hind Al-Sulaiti", email: "hind.sulaiti@example.com", phone: "66770011" },
+    channel: "shopify",
+    items: 2,
+    status: "Picking",
+    city: "The Pearl",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.3713,
+    lng: 51.5476,
+  },
+  {
+    id: "HM99013",
+    customerId: "cust-99013",
+    tat: "00h 25m",
+    date: getTodayDateString(),
+    time: "15:00",
+    customer: { name: "Rashid Al-Naimi", email: "rashid.naimi@example.com", phone: "33992288" },
+    channel: "shopify",
+    items: 3,
+    status: "Picking",
+    city: "Lusail",
+    coordinator: "-",
+    driver: null,
+    picker: "Ahmed Khalil, Nijad",
+    packer: null,
+    total: 659,
+    shopify: "Unfulfilled",
+    pickingStatus: "2/3 Picked",
+    packingStatus: "0/3 Packed",
+    bags: 0,
+    lat: 25.4182,
+    lng: 51.5218,
+  },
+  {
+    id: "HM99014",
+    customerId: "cust-99014",
+    tat: "00h 30m",
+    date: getTodayDateString(),
+    time: "15:15",
+    customer: { name: "Reem Al-Thani", email: "reem.thani@example.com", phone: "55113344" },
+    channel: "shopify",
+    items: 2,
+    status: "Picked",
+    city: "Al Waab",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "2/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.2638,
+    lng: 51.4822,
+  },
+  {
+    id: "HM68233",
+    customerId: "cust-68233",
+    tat: "00h 10m",
+    date: getTodayDateString(),
+    time: "14:30",
+    customer: { name: "Ahmed Al-Malki", email: "ahmed.malki@example.com", phone: "55998877" },
+    channel: "shopify",
+    items: 2,
+    status: "Picking",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: null,
+    total: 630,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/2 Picked",
+    packingStatus: "0/2 Packed",
+    bags: 0,
+    lat: 25.2854,
+    lng: 51.5310,
+    payment: {
+      subtotal: 630,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 630,
+      balance: 630,
+      method: "Credit Card",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+  },
+  {
+    id: "HM68234",
+    customerId: "cust-68234",
+    tat: "00h 15m",
+    date: getTodayDateString(),
+    time: "15:00",
+    customer: { name: "Sara Al-Khuwaili", email: "sara.khuwaili@example.com", phone: "33445577" },
+    channel: "web",
+    items: 1,
+    status: "Packing",
+    city: "Doha",
+    coordinator: "-",
+    driver: null,
+    picker: "picker@rmo.qa",
+    packer: "packer@rmo.qa",
+    total: 1199,
+    shopify: "Unfulfilled",
+    pickingStatus: "1/1 Picked",
+    packingStatus: "0/1 Packed",
+    bags: 0,
+    lat: 25.3286,
+    lng: 51.5310,
+    payment: {
+      subtotal: 1199,
+      discount: 0,
+      shipping: 0,
+      shippingMethod: "Standard Delivery",
+      total: 1199,
+      balance: 1199,
+      method: "Cash on Delivery",
+      totalPaid: 0,
+      cash: 0,
+      card: 0,
+    },
+  },
+  {
     id: "HM99005",
     customerId: "cust-99005",
     tat: "00h 01m",
-    date: "Jun 27",
+    date: getTodayDateString(),
     time: "10:55",
     customer: { name: "Khalid Al-Nuaimi", email: "khalid.nuaimi@example.com", phone: "55776688" },
     channel: "shopify",
@@ -1315,9 +1636,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM59238",
     customerId: "cust-59238",
-    tat: "642h 50m",
-    date: "Apr 16",
-    time: "18:34",
+    tat: "01h 30m",
+    date: getTodayDateString(),
+    time: "11:34",
     customer: { name: "test test", email: "nandu@halamama.com", phone: "77532802" },
     channel: "web",
     items: 0,
@@ -1357,9 +1678,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM59239",
     customerId: "cust-59239",
-    tat: "642h 49m",
-    date: "Apr 16",
-    time: "18:35",
+    tat: "02h 10m",
+    date: getTodayDateString(),
+    time: "10:35",
     customer: { name: "Sara Alsooj", email: "bent-alsooj@hotmail.com", phone: "55339494" },
     channel: "5382175",
     items: 2,
@@ -1399,7 +1720,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM59245",
     customerId: "cust-59245",
     tat: "02h 15m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "11:00",
     customer: { name: "Fatima Al-Thani", email: "fatima.thani@gmail.com", phone: "33442211" },
     channel: "shopify",
@@ -1436,7 +1757,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64110",
     customerId: "cust-64110",
     tat: "00h 28m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "10:15",
     customer: { name: "Dana Al-Thani", email: "dana.thani@gmail.com", phone: "55223344" },
     channel: "shopify",
@@ -1459,7 +1780,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64112",
     customerId: "cust-64112",
     tat: "00h 58m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "09:45",
     customer: { name: "Zoe Henderson", email: "zoe.h@outlook.com", phone: "33445566" },
     channel: "web",
@@ -1482,7 +1803,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64116",
     customerId: "cust-64116",
     tat: "01h 31m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "09:12",
     customer: { name: "Liam Gallagher", email: "liam.g@oasis.com", phone: "55009988" },
     channel: "web",
@@ -1505,7 +1826,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM64118",
     customerId: "cust-64118",
     tat: "02h 03m",
-    date: "May 27",
+    date: getTodayDateString(),
     time: "08:40",
     customer: { name: "Amira Haddad", email: "amira.h@gmail.com", phone: "66778899" },
     channel: "shopify",
@@ -1528,7 +1849,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60104",
     customerId: "cust-60104",
     tat: "03h 22m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "12:41",
     customer: { name: "Hessa Al-Jaber", email: "hessa.jaber@gmail.com", phone: "55330012" },
     channel: "shopify",
@@ -1552,7 +1873,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60105",
     customerId: "cust-60105",
     tat: "04h 03m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "13:12",
     customer: { name: "Rashed Nasser", email: "rashed.nasser@gmail.com", phone: "55881234" },
     channel: "web",
@@ -1576,7 +1897,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60106",
     customerId: "cust-60106",
     tat: "05h 37m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "13:48",
     customer: { name: "Dana Ibrahim", email: "dana.ibrahim@gmail.com", phone: "55773391" },
     channel: "web",
@@ -1600,7 +1921,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60107",
     customerId: "cust-60107",
     tat: "06h 10m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "14:26",
     customer: { name: "Lina Qassim", email: "lina.qassim@gmail.com", phone: "55990031" },
     channel: "shopify",
@@ -1639,7 +1960,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM60108",
     customerId: "cust-60108",
     tat: "07h 25m",
-    date: "May 13",
+    date: getTodayDateString(),
     time: "15:04",
     customer: { name: "Othman Kareem", email: "othman.kareem@gmail.com", phone: "55447766" },
     channel: "web",
@@ -1691,9 +2012,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM63850",
     customerId: "cust-63850",
-    tat: "154h 34m",
-    date: "May 20",
-    time: "02:53",
+    tat: "02h 34m",
+    date: getTodayDateString(),
+    time: "10:15",
     customer: { name: "Noora Almannai", email: "n.a.y.1@hotmail.com", phone: "+97466111881" },
     channel: "web" as const,
     items: 1,
@@ -1715,8 +2036,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68300",
     customerId: "cust-68300",
-    tat: "50h 00m",
-    date: "May 25",
+    tat: "01h 00m",
+    date: getTodayDateString(),
     time: "12:30",
     customer: { name: "Fatima Al-Kuwari", email: "fatima.kuwari@example.com", phone: "55889900" },
     channel: "shopify" as const,
@@ -1739,8 +2060,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68229",
     customerId: "cust-68229",
-    tat: "48h 15m",
-    date: "May 25",
+    tat: "01h 15m",
+    date: getTodayDateString(),
     time: "14:10",
     customer: { name: "Sara Al Sulaiti", email: "sara.sulaiti@example.com", phone: "55112233" },
     channel: "web" as const,
@@ -1763,9 +2084,9 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68258",
     customerId: "cust-68258",
-    tat: "46h 10m",
-    date: "May 25",
-    time: "16:20",
+    tat: "00h 40m",
+    date: getTodayDateString(),
+    time: "15:20",
     customer: { name: "Mouza Al Derham", email: "mouza.derham@example.com", phone: "55667788" },
     channel: "web" as const,
     items: 2,
@@ -1787,8 +2108,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM68268",
     customerId: "cust-68268",
-    tat: "44h 05m",
-    date: "May 26",
+    tat: "02h 05m",
+    date: getTodayDateString(),
     time: "09:30",
     customer: { name: "aisha alnaemi", email: "aisha.naemi@example.com", phone: "55990011" },
     channel: "shopify" as const,
@@ -1802,7 +2123,6 @@ export const MOCK_ORDERS: Order[] = [
     packer: "mashood",
     total: 899,
     shopify: "Pending" as const,
-    pickingStatus: "1/1 Picked",
     packingStatus: "1/1 Packed",
     bags: 1,
     lat: 25.2854,
@@ -1811,8 +2131,8 @@ export const MOCK_ORDERS: Order[] = [
   {
     id: "HM64839",
     customerId: "cust-64839",
-    tat: "432h 12m",
-    date: "May 15",
+    tat: "03h 12m",
+    date: getTodayDateString(),
     time: "11:15",
     customer: { name: "test test", email: "test.test@example.com", phone: "77532802" },
     channel: "web" as const,
@@ -1836,16 +2156,16 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM99001",
     customerId: "cust-99001",
     tat: "01h 05m",
-    date: "Jun 16",
+    date: getTodayDateString(),
     time: "14:00",
     customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
     channel: "shopify" as const,
     items: 2,
-    status: "New" as const,
+    status: "Picking" as const,
     city: "Doha",
     coordinator: "-",
     driver: null,
-    picker: null,
+    picker: "picker@rmo.qa, nijad@rmo.qa",
     packer: null,
     total: 480,
     shopify: "Unfulfilled" as const,
@@ -1859,7 +2179,7 @@ export const MOCK_ORDERS: Order[] = [
     id: "HM99003",
     customerId: "cust-99003",
     tat: "04h 15m",
-    date: "Jun 16",
+    date: getTodayDateString(),
     time: "11:20",
     customer: { name: "Mohammed Al-Sada", email: "m.sada@example.com", phone: "66554433" },
     channel: "web" as const,
@@ -2071,11 +2391,247 @@ export function parseTatHours(tat: string): number {
 
 /** Get TAT color class based on hours elapsed */
 export function tatColorClass(tat: string): string {
+  if (tat === "—") return "text-muted-foreground";
   const hours = parseTatHours(tat);
   if (hours <= 2) return "text-emerald-600 dark:text-emerald-400";
   if (hours <= 12) return "text-amber-600 dark:text-amber-400";
   if (hours <= 24) return "text-orange-600 dark:text-orange-400";
   return "text-red-600 dark:text-red-400";
+}
+
+/** Get today's formatted date string e.g. "Jul 22" */
+export function getTodayDateString(): string {
+  return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Format ISO timestamp string or epoch ms to TAT string like "1h 30m" or "50m" */
+export function formatTatFromTimestamp(timestampISO: string | number): string {
+  const date = new Date(timestampISO);
+  if (isNaN(date.getTime())) return "0m";
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+/** Format duration between two timestamps as TAT string like "2h 10m" or "50m" */
+export function formatTatBetweenTimestamps(
+  startTimestampISO: string | number,
+  endTimestampISO: string | number
+): string {
+  const start = new Date(startTimestampISO).getTime();
+  const end = new Date(endTimestampISO).getTime();
+  if (isNaN(start) || isNaN(end)) return "0m";
+  const diffMs = Math.max(0, end - start);
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+/**
+ * The ordered lifecycle stages for an order.
+ * Used to determine whether an order has "reached" a given stage yet.
+ */
+const STAGE_ORDER: string[] = [
+  "New",
+  "Picking",
+  "Picked",
+  "Packing",
+  "Ready to Assign",
+  "Driver Accepted",
+  "Started",
+  "Delivered",
+];
+
+/** Stage offsets (minutes from creation) used to seed stageArrivedAt for mock/demo orders. */
+const STAGE_OFFSETS: Record<string, number> = {
+  New: 0,
+  Picking: 20,
+  Picked: 45,
+  Packing: 60,
+  "Ready to Assign": 80,
+  "Driver Accepted": 100,
+  Started: 110,
+  Delivered: 130,
+  Installation: 150,
+  "Delivery Failed": 120,
+  Cancelled: 90,
+  Flagged: 100,
+  Replacement: 140,
+  Exchange: 140,
+};
+
+/**
+ * Compute stageArrivedAt timestamps for an order based on its date, time, and current status.
+ * For mock/demo orders that don't have live transition timestamps.
+ * Only populates stages up to and including the order's current status.
+ */
+export function computeStageArrivedAt(order: {
+  date: string;
+  time: string;
+  status: OrderStatus;
+  tat?: string;
+}): Record<string, string> {
+  // Parse the order's creation date+time
+  const dateStr = order.date; // e.g. "Jul 9" or "May 27"
+  const timeStr = order.time; // e.g. "14:30"
+  const year = new Date().getFullYear();
+  let creationDate = new Date(`${dateStr} ${year} ${timeStr}`);
+
+  // If we have a tat string, we can back-calculate the creation date (ideal for mock data)
+  if (order.tat) {
+    const match = order.tat.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
+    if (match && (match[1] || match[2])) {
+      const h = parseInt(match[1] || "0", 10);
+      const m = parseInt(match[2] || "0", 10);
+      creationDate = new Date(Date.now() - (h * 60 * 60 * 1000 + m * 60 * 1000));
+    }
+  } else if (isNaN(creationDate.getTime()) || creationDate.getTime() > Date.now()) {
+    // Fallback: use current time minus a default offset
+    creationDate = new Date(Date.now() - 60 * 60 * 1000);
+  }
+
+  const result: Record<string, string> = {};
+  const statusIdx = STAGE_ORDER.indexOf(order.status);
+
+  // Determine elapsed time from creation until now
+  const totalElapsedMin = Math.max(1, (Date.now() - creationDate.getTime()) / (60 * 1000));
+
+  // Determine the default offset for the current status (or fallback)
+  const maxDefaultOffset = STAGE_OFFSETS[order.status] ?? 120;
+
+  // Proportional scale factor
+  // If total elapsed time is less than the stage's default offset, scale all offsets down
+  // so the current stage is reached at 90% of the elapsed time.
+  const scaleFactor = totalElapsedMin < maxDefaultOffset
+    ? (totalElapsedMin * 0.9) / maxDefaultOffset
+    : 1.0;
+
+  // For statuses in the main lifecycle
+  if (statusIdx >= 0) {
+    for (let i = 0; i <= statusIdx; i++) {
+      const stage = STAGE_ORDER[i];
+      const offset = STAGE_OFFSETS[stage] ?? 0;
+      const adjustedOffset = offset * scaleFactor;
+      result[stage] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
+    }
+  } else {
+    // For non-lifecycle statuses (Cancelled, Delivery Failed, Flagged, Replacement, Exchange, Installation)
+    // Still populate the stages it would have passed through
+    // All these orders went through at least New → Picking → Picked → Packing → Ready to Assign
+    const passedStages = ["New", "Picking", "Picked", "Packing", "Ready to Assign"];
+
+    // Some statuses imply delivery was attempted
+    const deliveryStatuses = ["Delivery Failed", "Delivered", "Installation", "Replacement", "Exchange"];
+    if (deliveryStatuses.includes(order.status)) {
+      passedStages.push("Driver Accepted", "Started");
+    }
+
+    for (const stage of passedStages) {
+      const offset = STAGE_OFFSETS[stage] ?? 0;
+      const adjustedOffset = offset * scaleFactor;
+      result[stage] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
+    }
+
+    // Add the current status itself
+    const currentOffset = STAGE_OFFSETS[order.status] ?? 120;
+    const adjustedOffset = currentOffset * scaleFactor;
+    result[order.status] = new Date(creationDate.getTime() + adjustedOffset * 60 * 1000).toISOString();
+  }
+
+  return result;
+}
+
+/**
+ * Calculates display TAT string for an order based on the active tab/stage context.
+ *
+ * Requirements:
+ * - On ALL, Unfulfilled, or New tabs: TAT is displayed from the time the order arrived in the "New" tab (creation time).
+ * - On stage-specific tabs (Picking, Picked, Packing, Ready to Assign, In Delivery, Delivered, Installation, etc.):
+ *   TAT is displayed from the time the order arrived in THAT specific list/stage.
+ * - On Delivered tab/stage: TAT is total delivery duration from creation (New) to delivery timestamp.
+ * - If the order has NOT yet reached the requested stage, display "—".
+ */
+export function getDisplayTat(
+  order?: Order | null,
+  activeTab?: LegacyTabId | OrderStatus | string
+): string {
+  if (!order) return "0m";
+
+  const tab = activeTab || "All";
+
+  // Resolve stageArrivedAt — use existing data, or compute from date+time for mock orders
+  let arrivedAt = order.stageArrivedAt && Object.keys(order.stageArrivedAt).length > 0
+    ? order.stageArrivedAt
+    : computeStageArrivedAt(order);
+
+  // 1. ALL, Unfulfilled, New -> TAT from arrival in New tab (order creation)
+  if (tab === "All" || tab === "Unfulfilled" || tab === "New") {
+    if (arrivedAt["New"]) {
+      const newTime = new Date(arrivedAt["New"]).getTime();
+      if (isNaN(newTime) || newTime > Date.now()) {
+        arrivedAt = computeStageArrivedAt(order);
+      }
+      return formatTatFromTimestamp(arrivedAt["New"]);
+    }
+    // Final fallback: use date+time field to compute live
+    return order.tat || "0m";
+  }
+
+  // 2. Stage-specific tabs (mapping only actual workflow stages)
+  const stageKeyMap: Record<string, string> = {
+    "Picking": "Picking",
+    "Picked": "Picked",
+    "Packing": "Packing",
+    "Ready to Assign": "Ready to Assign",
+    "In Delivery": "Driver Accepted",
+    "Driver Accepted": "Driver Accepted",
+    "Started": "Started",
+    "Delivered": "Delivered",
+    "Installation": "Installation",
+    "Delivery Failed": "Delivery Failed",
+    "Flagged": "Flagged",
+    "Replacement": "Replacement",
+    "Exchange": "Exchange",
+  };
+
+  let key = stageKeyMap[tab];
+
+  // If the tab is a virtual filter tab (like Flags & Exceptions, PayLater, etc.)
+  if (!key) {
+    // Fall back to the order's actual status stage key
+    key = stageKeyMap[order.status] || order.status;
+  }
+
+  // Validate the stage arrival timestamp: if it's in the future or invalid, re-compute
+  if (arrivedAt[key]) {
+    const stageTime = new Date(arrivedAt[key]).getTime();
+    if (isNaN(stageTime) || stageTime > Date.now()) {
+      arrivedAt = computeStageArrivedAt(order);
+    }
+  }
+
+  // 3. Delivered stage special handling: Total TAT from order arrival (New) to Delivered timestamp
+  if (key === "Delivered") {
+    if (arrivedAt["Delivered"] && arrivedAt["New"]) {
+      return formatTatBetweenTimestamps(arrivedAt["New"], arrivedAt["Delivered"]);
+    }
+    if (order.status === "Delivered" && arrivedAt["New"]) {
+      return formatTatFromTimestamp(arrivedAt["New"]);
+    }
+    return "—";
+  }
+
+  // Check if order has a timestamp for this stage
+  if (arrivedAt[key]) {
+    return formatTatFromTimestamp(arrivedAt[key]);
+  }
+
+  // Order has NOT reached this stage — show "—"
+  return "—";
 }
 
 export type OrderSlaStatus = "on_track" | "at_risk" | "breached";
@@ -2146,3 +2702,26 @@ export function getCustomerById(customerId: string): Order | undefined {
   const list = getOrdersForCustomerId(customerId);
   return list[0];
 }
+
+/** Resolve any user email to display name from local user registry */
+export function getUserDisplayName(userValue: string | null | undefined): string {
+  if (!userValue) return "";
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      const rawUsers = localStorage.getItem("hm_users");
+      if (rawUsers) {
+        const users = JSON.parse(rawUsers);
+        const found = users.find((u: any) => u.email === userValue || u.name === userValue);
+        if (found && found.name) {
+          return found.name;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return userValue;
+}
+
+export const getPickerDisplayName = getUserDisplayName;
+

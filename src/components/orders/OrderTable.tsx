@@ -4,14 +4,15 @@ import type { Order, LegacyTabId } from "@/lib/orders";
 import { OrderTableRow } from "./OrderTableRow";
 
 /** Determine which dynamic column to show based on the active tab */
-function getDynamicColumn(activeTab: LegacyTabId): "driver" | "picker" | "packer" | null {
+function getDynamicColumn(activeTab: LegacyTabId): "driver" | "picker" | "packer" | "all_status" | null {
   switch (activeTab) {
+    case "All":
     case "Unfulfilled":
+      return "all_status";
     case "In Delivery":
     case "Delivered":
     case "Delivery Failed":
     case "Installation":
-    case "All":
       return "driver";
     case "Ready to Assign":
       return "packer";
@@ -71,7 +72,16 @@ export function OrderTable({
     );
   }
 
-  const dynamicLabel = dynamicCol === "driver" ? "Driver" : dynamicCol === "picker" ? "Picker" : dynamicCol === "packer" ? "Packer" : null;
+  const dynamicLabel =
+    dynamicCol === "driver"
+      ? "Driver"
+      : dynamicCol === "picker"
+        ? "Picker"
+        : dynamicCol === "packer"
+          ? "Packer"
+          : dynamicCol === "all_status"
+            ? "Status / Crew"
+            : null;
   const isPickingOrPicked = activeTab === "Picking" || activeTab === "Picked";
   const isPacking = activeTab === "Packing";
 
@@ -122,6 +132,7 @@ export function OrderTable({
                 </span>
               </button>
             </th>
+            <th className="py-3 pr-3 font-semibold">Delivery Date</th>
             <th className="py-3 pr-3 font-semibold">
               <button
                 onClick={() => onSort?.("customer")}
@@ -133,11 +144,11 @@ export function OrderTable({
                 </span>
               </button>
             </th>
-            {!isPickingOrPicked && !isPacking && (
+            {!isPickingOrPicked && !isPacking && activeTab !== "New" && activeTab !== "All" && (
               <th className="py-3 pr-3 font-semibold">Channel</th>
             )}
             <th className="py-3 pr-3 font-semibold">Items</th>
-            {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && (
+            {!isPickingOrPicked && !isPacking && activeTab !== "Ready to Assign" && activeTab !== "New" && activeTab !== "All" && (
               <th className="py-3 pr-3 font-semibold">Returns</th>
             )}
             {isPickingOrPicked && (
@@ -156,11 +167,12 @@ export function OrderTable({
             {!isPacking && !isPickingOrPicked && (
               <th className="py-3 pr-3 font-semibold">City</th>
             )}
-            {!isPickingOrPicked && !isPacking && (
-              <th className="py-3 pr-3 font-semibold">Coordinator</th>
-            )}
+            <th className="py-3 pr-3 font-semibold">Comment</th>
             {dynamicLabel && (
               <th className="py-3 pr-3 font-semibold">{dynamicLabel}</th>
+            )}
+            {activeTab === "Ready to Assign" && (
+              <th className="py-3 pr-3 font-semibold">Bags</th>
             )}
             {!isPacking && (
               <th className="py-3 pr-3 font-semibold">

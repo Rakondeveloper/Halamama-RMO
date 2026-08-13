@@ -260,3 +260,47 @@ export function useUpdateOrderDetails() {
     },
   });
 }
+
+// ─── useUpdateOrderComment ────────────────────────────────────────────────
+
+/**
+ * Hook to update/add a comment on an order with admin metadata.
+ */
+export function useUpdateOrderComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      orderId,
+      commentText,
+      adminName,
+    }: {
+      orderId: string;
+      commentText: string;
+      adminName: string;
+    }) => ordersApi.updateOrderComment(orderId, commentText, adminName),
+
+    onSuccess: (_, { orderId }) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}
+
+// ─── useDeleteOrderComment ────────────────────────────────────────────────
+
+/**
+ * Hook to delete a comment from an order.
+ */
+export function useDeleteOrderComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (orderId: string) => ordersApi.deleteOrderComment(orderId),
+
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}

@@ -7,7 +7,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/AppSidebar";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useOrders } from "@/hooks/useOrders";
-import { getMockOrderItems } from "@/lib/orders";
+import { getMockOrderItems, type Order } from "@/lib/orders";
 import {
   getLocations, getTeams, addAppointment, getAppointments,
   hasAppointment, updateAppointment,
@@ -377,7 +377,7 @@ function CallDialog({ order, onClose }: { order: any; onClose: () => void }) {
 }
 
 function ScheduleDialog({ order, locations, onClose, onSaved }: {
-  order: any;
+  order: Order;
   locations: InstallLocation[];
   onClose: () => void;
   onSaved: () => void;

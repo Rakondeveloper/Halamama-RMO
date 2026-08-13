@@ -12,7 +12,7 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import { MOCK_ORDERS, type Order, getMockOrderTotal, getMockOrderItems } from "@/lib/orders";
+import { MOCK_ORDERS, type Order, getMockOrderTotal, getMockOrderItems, computeStageArrivedAt, getTodayDateString } from "@/lib/orders";
 import { isDemoMode } from "@/lib/api/config";
 import { getProducts } from "./products";
 import { getVendorLocations } from "./vendor-locations";
@@ -83,6 +83,7 @@ function seedIfNeeded(): void {
     const enriched = MOCK_ORDERS.map((o) => ({
       ...o,
       itemsList: getMockOrderItems(o.id, o.items),
+      stageArrivedAt: computeStageArrivedAt(o),
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   } else {
@@ -103,11 +104,15 @@ function seedIfNeeded(): void {
       for (const mockOrder of MOCK_ORDERS) {
         const index = parsed.findIndex((o) => o.id === mockOrder.id);
         if (index === -1) {
-          parsed.push(mockOrder);
+          parsed.push({
+            ...mockOrder,
+            itemsList: getMockOrderItems(mockOrder.id, mockOrder.items),
+            total: getMockOrderTotal(mockOrder.id, mockOrder.items, mockOrder.payment),
+          });
           updated = true;
         } else {
           const stored = parsed[index];
-          if (!stored.itemsList || stored.itemsList.length === 0 || mockOrder.id === "HM64110" || mockOrder.id === "HM99001") {
+          if (!stored.itemsList || stored.itemsList.length === 0) {
             stored.itemsList = getMockOrderItems(mockOrder.id, mockOrder.items);
             stored.total = getMockOrderTotal(mockOrder.id, mockOrder.items, stored.payment);
             updated = true;
@@ -133,6 +138,16 @@ function seedIfNeeded(): void {
         }
       }
 
+      // Backfill stageArrivedAt & update dates to today for stored orders
+      const todayStr = getTodayDateString();
+      for (const order of parsed) {
+        if (order.date !== todayStr || !order.stageArrivedAt || Object.keys(order.stageArrivedAt).length === 0) {
+          order.date = todayStr;
+          order.stageArrivedAt = computeStageArrivedAt(order);
+          updated = true;
+        }
+      }
+
       if (updated) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       }
@@ -146,11 +161,29 @@ function seedIfNeeded(): void {
 
 /** Get all orders from the shared store. */
 export function getSharedOrders(): Order[] {
+  const adjustDateTime = (order: Order): Order => {
+    if (order.tat) {
+      const match = order.tat.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/);
+      if (match && (match[1] || match[2])) {
+        const h = parseInt(match[1] || "0", 10);
+        const m = parseInt(match[2] || "0", 10);
+        const actualDate = new Date(Date.now() - (h * 60 * 60 * 1000 + m * 60 * 1000));
+        return {
+          ...order,
+          date: actualDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          time: actualDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+        };
+      }
+    }
+    return order;
+  };
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const orders = JSON.parse(raw) as Order[];
-      return orders.map((order) => {
+      return orders.map((o) => {
+        const order = adjustDateTime(o);
         const total = getMockOrderTotal(order.id, order.items, order.payment);
         const rawItems = order.itemsList || getMockOrderItems(order.id, order.items);
         return {
@@ -164,14 +197,26 @@ export function getSharedOrders(): Order[] {
                 total,
                 balance: total - (order.payment.totalPaid ?? 0),
               }
-            : undefined,
+            : {
+                method: (order as any).paymentMethod || "Cash",
+                total,
+                totalPaid: total - ((order as any).paymentBalance ?? 0),
+                cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+                card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+                subtotal: total - 10,
+                discount: 0,
+                shipping: 10,
+                balance: ((order as any).paymentBalance ?? 0),
+                shippingMethod: "Standard Delivery",
+              },
         };
       });
     }
   } catch (e) {
     console.warn("[Sync] Failed to read shared orders:", e);
   }
-  return MOCK_ORDERS.map((order) => {
+  return MOCK_ORDERS.map((o) => {
+    const order = adjustDateTime(o);
     const total = getMockOrderTotal(order.id, order.items, order.payment);
     return {
       ...order,
@@ -184,7 +229,18 @@ export function getSharedOrders(): Order[] {
             total,
             balance: total - (order.payment.totalPaid ?? 0),
           }
-        : undefined,
+        : {
+            method: (order as any).paymentMethod || "Cash",
+            total,
+            totalPaid: total - ((order as any).paymentBalance ?? 0),
+            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            subtotal: total - 10,
+            discount: 0,
+            shipping: 10,
+            balance: ((order as any).paymentBalance ?? 0),
+            shippingMethod: "Standard Delivery",
+          },
     };
   });
 }
@@ -204,7 +260,18 @@ function saveSharedOrders(orders: Order[]): void {
             total,
             balance: total - (order.payment.totalPaid ?? 0),
           }
-        : undefined,
+        : {
+            method: (order as any).paymentMethod || "Cash",
+            total,
+            totalPaid: total - ((order as any).paymentBalance ?? 0),
+            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
+            subtotal: total - 10,
+            discount: 0,
+            shipping: 10,
+            balance: ((order as any).paymentBalance ?? 0),
+            shippingMethod: "Standard Delivery",
+          },
     };
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
@@ -219,7 +286,12 @@ export function updateSharedOrder(
   const orders = getSharedOrders();
   const order = orders.find((o) => o.id === orderId);
   if (!order) return undefined;
+  const prevStatus = order.status;
   updater(order);
+  if (order.status !== prevStatus) {
+    if (!order.stageArrivedAt) order.stageArrivedAt = {};
+    order.stageArrivedAt[order.status] = new Date().toISOString();
+  }
   saveSharedOrders(orders);
   return order;
 }
@@ -228,6 +300,33 @@ export function updateSharedOrder(
 export function deleteSharedOrder(orderId: string): void {
   const orders = getSharedOrders().filter((o) => o.id !== orderId);
   saveSharedOrders(orders);
+}
+
+/** Update or set comment on an order with admin metadata. */
+export function updateOrderComment(
+  orderId: string,
+  commentText: string,
+  adminName: string,
+): Order | undefined {
+  const updated = updateSharedOrder(orderId, (o) => {
+    o.comment = commentText.trim();
+    o.commentMeta = {
+      editedBy: adminName || "Suhail (Ops Admin)",
+      editedAt: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+  });
+  broadcastChange();
+  return updated;
+}
+
+/** Delete comment from an order. */
+export function deleteOrderComment(orderId: string): Order | undefined {
+  const updated = updateSharedOrder(orderId, (o) => {
+    delete o.comment;
+    delete o.commentMeta;
+  });
+  broadcastChange();
+  return updated;
 }
 
 // ─── Cross-Tab Broadcast ─────────────────────────────────────────────────

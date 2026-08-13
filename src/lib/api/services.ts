@@ -109,8 +109,14 @@ export async function fetchOrderDetails(orderId: string): Promise<EnrichedOrder 
     if (!base) return undefined;
     // Temporarily patch MOCK_ORDERS so the enricher can find it
     const idx = MOCK_ORDERS.findIndex((o) => o.id === orderId);
-    if (idx >= 0) Object.assign(MOCK_ORDERS[idx], base);
-    return getMockEnrichedOrder(orderId);
+    if (idx >= 0) {
+      MOCK_ORDERS[idx] = { ...MOCK_ORDERS[idx], ...base };
+    }
+    const enriched = getMockEnrichedOrder(orderId);
+    if (enriched && base.itemsList) {
+      enriched.itemsList = base.itemsList;
+    }
+    return enriched;
   }
 
   // ── Live mode ──
@@ -171,7 +177,71 @@ export async function assignDriver(
 
   await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
     custom_driver: driverName,
-    custom_driver_status: "Assigned",
+    custom_driver_status: driverName ? "Assigned" : "Unassigned",
+    status: driverName ? "Driver Accepted" : "Ready to Assign",
+  });
+}
+
+/**
+ * Approve an order for picking (Operations Admin Action).
+ */
+export async function approveOrderForPicking(
+  orderId: string,
+  adminName: string = "Suhail (Ops Admin)"
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      o.isApprovedForPicking = true;
+      o.approvedBy = adminName;
+      o.approvedAt = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (o.itemsList) {
+        o.itemsList.forEach((i) => { i.isApproved = true; });
+      }
+      if (o.status === "New" || o.status === "Unfulfilled") {
+        o.status = "Picking";
+      }
+    });
+    broadcastChange();
+    console.log(`[Sync] Order ${orderId} approved for picking by ${adminName}`);
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_approved_for_picking: 1,
+    custom_approved_by: adminName,
+    status: "Picking",
+  });
+}
+
+/**
+ * Approve a specific item in an order for picking (Operations Admin Action).
+ */
+export async function approveItemForPicking(
+  orderId: string,
+  itemIdOrSku: string,
+  adminName: string = "Suhail (Ops Admin)"
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      if (o.itemsList) {
+        const item = o.itemsList.find((i) => i.id === itemIdOrSku || i.sku === itemIdOrSku);
+        if (item) {
+          item.isApproved = true;
+        }
+      }
+      o.isApprovedForPicking = true;
+      o.approvedBy = adminName;
+      if (o.status === "New" || o.status === "Unfulfilled") {
+        o.status = "Picking";
+      }
+    });
+    broadcastChange();
+    console.log(`[Sync] Item ${itemIdOrSku} in order ${orderId} approved for picking by ${adminName}`);
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order Item/${itemIdOrSku}`, {
+    custom_is_approved: 1,
   });
 }
 
@@ -198,6 +268,110 @@ export async function assignPicker(
 }
 
 /**
+ * Assign a specific item in an order to a picker.
+ */
+export async function assignItemPicker(
+  orderId: string,
+  itemIdOrSku: string,
+  pickerEmail: string,
+  pickerName: string
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      if (o.itemsList) {
+        o.itemsList = o.itemsList.map((item) => {
+          if (item.id === itemIdOrSku || item.sku === itemIdOrSku) {
+            const newItem = { ...item };
+            if (pickerEmail === "any") {
+              newItem.pickedBy = "any";
+              newItem.pickerName = pickerName || "Any Picker";
+            } else if (!pickerEmail) {
+              delete newItem.pickedBy;
+              delete newItem.pickerName;
+            } else {
+              newItem.pickedBy = pickerEmail;
+              newItem.pickerName = pickerName;
+            }
+            return newItem;
+          }
+          return item;
+        });
+        const pickers = Array.from(
+          new Set(
+            o.itemsList
+              .map((i) => i.pickerName || i.pickedBy)
+              .filter((p): p is string => Boolean(p))
+          )
+        );
+        if (pickers.length > 0) {
+          o.picker = pickers.join(", ");
+        } else {
+          delete o.picker;
+        }
+      }
+      if (o.status === "New" || o.status === "Unfulfilled") {
+        o.status = "Picking";
+      }
+    });
+    broadcastChange();
+    console.log(`[Sync] Assigned item ${itemIdOrSku} in order ${orderId} to picker ${pickerName}`);
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order Item/${itemIdOrSku}`, {
+    custom_picker: pickerEmail,
+  });
+}
+
+/**
+ * Assign all remaining unpicked items in an order to a specified picker.
+ */
+export async function assignRemainingItems(
+  orderId: string,
+  pickerEmail: string,
+  pickerName: string
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      if (o.itemsList) {
+        o.itemsList.forEach((item) => {
+          const isPicked = item.status === "Prepared" || item.status === "Picked";
+          if (!isPicked) {
+            if (!pickerEmail || pickerEmail === "any") {
+              delete item.pickedBy;
+              delete item.pickerName;
+            } else {
+              item.pickedBy = pickerEmail;
+              item.pickerName = pickerName;
+            }
+          }
+        });
+        const pickers = Array.from(
+          new Set(
+            o.itemsList
+              .map((i) => i.pickerName || i.pickedBy)
+              .filter((p): p is string => Boolean(p))
+          )
+        );
+        if (pickers.length > 0) {
+          o.picker = pickers.join(", ");
+        }
+      }
+      if (o.status === "New" || o.status === "Unfulfilled") {
+        o.status = "Picking";
+      }
+    });
+    broadcastChange();
+    console.log(`[Sync] Assigned remaining items in order ${orderId} to picker ${pickerName}`);
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_picker: pickerEmail,
+  });
+}
+
+/**
  * Assign a packer to an order.
  */
 export async function assignPacker(
@@ -216,6 +390,51 @@ export async function assignPacker(
 
   await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
     custom_packer: packerName,
+  });
+}
+
+/**
+ * Update or set comment on an order with admin tracking.
+ */
+export async function updateOrderComment(
+  orderId: string,
+  commentText: string,
+  adminName: string,
+): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      o.comment = commentText.trim();
+      o.commentMeta = {
+        editedBy: adminName || "Suhail (Ops Admin)",
+        editedAt: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      };
+    });
+    broadcastChange();
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_comment: commentText,
+    custom_comment_admin: adminName,
+  });
+}
+
+/**
+ * Delete comment from an order.
+ */
+export async function deleteOrderComment(orderId: string): Promise<void> {
+  if (isDemoMode()) {
+    updateSharedOrder(orderId, (o) => {
+      delete o.comment;
+      delete o.commentMeta;
+    });
+    broadcastChange();
+    return;
+  }
+
+  await erpNextClient.put(`/api/resource/Sales Order/${orderId}`, {
+    custom_comment: "",
+    custom_comment_admin: "",
   });
 }
 
@@ -347,7 +566,11 @@ export const ordersApi = {
   updateOrderStatus,
   assignDriver,
   assignPicker,
+  assignItemPicker,
+  assignRemainingItems,
   assignPacker,
+  updateOrderComment,
+  deleteOrderComment,
   updateDriverStatus,
   updatePaymentDetails,
   updateOrderNotes,

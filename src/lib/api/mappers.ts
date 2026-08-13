@@ -65,6 +65,7 @@ export interface ERPNextSalesOrder {
   custom_latitude?: number;
   custom_longitude?: number;
   custom_tags?: string;
+  custom_stage_arrived_at?: string | Record<string, string>;
 }
 
 /** Raw Sales Order Item from ERPNext */
@@ -209,6 +210,11 @@ export function mapErpNextToOrder(raw: ERPNextSalesOrder): Order {
     tags: raw.custom_tags ? raw.custom_tags.split(",").map(t => t.trim()) : [],
     deliveryDate,
     zone: raw.custom_zone || "",
+    stageArrivedAt: raw.custom_stage_arrived_at
+      ? (typeof raw.custom_stage_arrived_at === "string"
+          ? JSON.parse(raw.custom_stage_arrived_at)
+          : raw.custom_stage_arrived_at)
+      : undefined,
   };
 }
 
@@ -228,6 +234,7 @@ export function mapErpNextToOrderItem(raw: ERPNextSalesOrderItem): OrderItemType
     fcName: raw.warehouse || "Default Warehouse",
     bin: raw.custom_bin || "—",
     status: (raw.custom_status as "Prepared" | "Accepted" | "Allocated" | "Pending") || "Pending",
+    serialNumber: (raw as any).custom_serial_no || (raw as any).serial_no || (raw.custom_barcode ? `SN-${raw.custom_barcode}` : `SN-${raw.item_code}-${(raw as any).idx || 1}`),
   };
 }
 
@@ -237,7 +244,21 @@ export function mapErpNextToOrderItem(raw: ERPNextSalesOrderItem): OrderItemType
  */
 export function mapErpNextToEnrichedOrder(raw: ERPNextSalesOrder): EnrichedOrder {
   const base = mapErpNextToOrder(raw);
-  const itemsList = raw.items?.map(mapErpNextToOrderItem) || [];
+  let itemsList = raw.items?.map(mapErpNextToOrderItem) || [];
+
+  const isPostPickedStage = ["Picked", "Packing", "Ready to Assign", "Driver Accepted", "Started", "Delivered"].includes(base.status);
+  const pickingStat = raw.custom_picking_status || base.pickingStatus;
+  const match = pickingStat?.match(/^(\d+)\/(\d+)/);
+  const targetPickedCount = isPostPickedStage ? itemsList.length : (match ? parseInt(match[1], 10) : -1);
+
+  if (targetPickedCount >= itemsList.length && itemsList.length > 0) {
+    itemsList = itemsList.map((item) => ({ ...item, status: "Prepared" as const }));
+  } else if (targetPickedCount >= 0) {
+    itemsList = itemsList.map((item, idx) => ({
+      ...item,
+      status: idx < targetPickedCount ? ("Prepared" as const) : ("Allocated" as const),
+    }));
+  }
 
   return {
     ...base,

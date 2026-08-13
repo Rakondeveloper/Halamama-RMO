@@ -1,8 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, tatColorClass, statusDotClass, type Order, type OrderReturn } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, statusDotClass, type Order, type OrderReturn } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DeliveryDateCell } from "../DeliveryDateCell";
 
 function ReturnBadge({ count, status }: { count: number; status?: string }) {
   if (status === "collected") {
@@ -72,6 +73,7 @@ export function ReturnsTable({
             <th className="py-3 pl-4 pr-3 font-semibold">Order</th>
             <th className="py-3 pr-3 font-semibold">TAT</th>
             <th className="py-3 pr-3 font-semibold">Date & Time</th>
+            <th className="py-3 pr-3 font-semibold">Delivery Date</th>
             <th className="py-3 pr-3 font-semibold">Customer</th>
             <th className="py-3 pr-3 font-semibold">Items</th>
             <th className="py-3 pr-3 font-semibold">Status</th>
@@ -81,7 +83,8 @@ export function ReturnsTable({
         </thead>
         <tbody>
           {orders.map((order) => {
-            const tatClass = tatColorClass(order.tat);
+            const displayTat = getDisplayTat(order, "Returns & Replacements");
+            const tatClass = tatColorClass(displayTat);
             const badgeInfo = getReturnBadgeStatus(order);
             return (
               <tr
@@ -89,19 +92,28 @@ export function ReturnsTable({
                 className="border-b border-border/70 transition-colors hover:bg-muted/35"
               >
                 <td className="py-3 pl-4 pr-3 align-middle">
-                  <span className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer">
+                  <span
+                    className="font-mono text-sm font-semibold text-primary hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewOrder(order);
+                    }}
+                  >
                     {order.id}
                   </span>
                 </td>
                 <td className="py-3 pr-3 align-middle">
                   <span className={cn("text-xs font-semibold tabular-nums", tatClass)}>
-                    {order.tat}
+                    {displayTat}
                   </span>
                 </td>
                 <td className="whitespace-nowrap py-3 pr-3 align-middle">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span className="text-foreground font-medium">📅 {order.date} | {order.time}</span>
                   </div>
+                </td>
+                <td className="whitespace-nowrap py-3 pr-3 align-middle">
+                  <DeliveryDateCell order={order} />
                 </td>
                 <td className="max-w-[220px] py-3 pr-3 align-middle">
                   <div className="min-w-0">
@@ -168,7 +180,7 @@ export function ReturnsTable({
           })}
           {orders.length === 0 && (
             <tr>
-              <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+              <td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
                 No return orders found.
               </td>
             </tr>

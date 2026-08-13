@@ -71,7 +71,7 @@ const ADMIN_TO_RMO_STATUS = {
   'Packing': 'packing',
   'Ready to Assign': 'assigning',
   'Driver Accepted': 'assigned',
-  'Started': 'assigned',
+  'Started': 'started',
   'Delivered': 'delivered',
   'Delivery Failed': 'failed',
   'Cancelled': 'cancelled',
@@ -88,6 +88,7 @@ const RMO_TO_ADMIN_STATUS = {
   'packing': 'Packing',
   'assigning': 'Ready to Assign',
   'assigned': 'Driver Accepted',
+  'started': 'Started',
   'delivered': 'Delivered',
   'failed': 'Delivery Failed',
   'flagged': 'Flagged',
@@ -113,35 +114,113 @@ export function getSharedOrdersForRmo() {
   }
 }
 
+const MOCK_NAMES = {
+  'picker@rmo.qa': 'Ahmed Khalil',
+  'packer@rmo.qa': 'Sara Al-Thani',
+  'driver@rmo.qa': 'Omar Farooq',
+  'nijad@rmo.qa': 'Nijad',
+  'mashood@rmo.qa': 'Mashood',
+};
+
+/**
+ * Resolve any name or email address to its corresponding email address.
+ */
+function getUserEmail(userValue) {
+  if (!userValue) return null;
+  if (userValue.includes('@')) return userValue.toLowerCase();
+  
+  // Search custom managed users registry first
+  try {
+    const rawUsers = localStorage.getItem(USERS_KEY);
+    if (rawUsers) {
+      const users = JSON.parse(rawUsers);
+      const found = users.find(u => u.name && u.name.toLowerCase() === userValue.toLowerCase());
+      if (found && found.email) return found.email.toLowerCase();
+    }
+  } catch (e) {}
+
+  // Fallback to hardcoded mock names lookup
+  const entry = Object.entries(MOCK_NAMES).find(
+    ([_, val]) => val.toLowerCase() === userValue.toLowerCase()
+  );
+  if (entry) return entry[0];
+
+  // Raw fallback format
+  return `${userValue.replace(/\s+/g, '').toLowerCase()}@rmo.qa`;
+}
+
+/**
+ * Resolve any name or email address to its display name.
+ */
+function getUserDisplayName(userValue) {
+  if (!userValue) return null;
+  if (userValue.includes('@')) {
+    const email = userValue.toLowerCase();
+    if (MOCK_NAMES[email]) return MOCK_NAMES[email];
+    
+    try {
+      const rawUsers = localStorage.getItem(USERS_KEY);
+      if (rawUsers) {
+        const users = JSON.parse(rawUsers);
+        const found = users.find(u => u.email && u.email.toLowerCase() === email);
+        if (found && found.name) return found.name;
+      }
+    } catch (e) {}
+    
+    return userValue.split('@')[0];
+  }
+  return userValue;
+}
+
 /**
  * Convert a single admin-format order to RMO format.
  */
 function adminToRmo(adminOrder) {
-  const status = ADMIN_TO_RMO_STATUS[adminOrder.status] || 'new';
+  let status = ADMIN_TO_RMO_STATUS[adminOrder.status] || 'new';
 
   let generatedItems = [];
   const rawItems = adminOrder.itemsList || adminOrder.items;
   if (Array.isArray(rawItems)) {
-    generatedItems = resolveDynamicRoutingForRmo(rawItems);
+    generatedItems = resolveDynamicRoutingForRmo(rawItems).map(item => {
+      const isPicked = item.status === 'Prepared' || item.status === 'Picked' || !!item.picked;
+      const assignedTo = item.pickedBy ? getUserEmail(item.pickedBy) : (item.assignedTo || null);
+      const assignedName = item.pickerName ? getUserDisplayName(item.pickerName) : (item.assignedName || (item.pickedBy ? getUserDisplayName(item.pickedBy) : null));
+      return {
+        ...item,
+        picked: isPicked,
+        isApproved: item.isApproved !== false,
+        assignedTo,
+        assignedName
+      };
+    });
   } else {
     const itemsCount = typeof adminOrder.items === 'number' ? adminOrder.items : 0;
     if (itemsCount > 0) {
-      const isPicked = ['packed', 'packing', 'assigning', 'assigned', 'delivered'].includes(status);
+      const isPicked = ['packed', 'packing', 'assigning', 'assigned', 'started', 'delivered'].includes(status);
       generatedItems.push({
         sku: 'NS-SPNC-1P-0200',
         name: 'Frida Baby Saline Spray',
         qty: 1,
-        picked: isPicked
+        picked: isPicked,
+        assignedTo: getUserEmail(adminOrder.picker),
+        assignedName: getUserDisplayName(adminOrder.picker)
       });
       for (let i = 2; i <= itemsCount; i++) {
         generatedItems.push({
           sku: `HM-GEN${i}`,
           name: `Baby Care Product ${i}`,
           qty: 1,
-          picked: isPicked
+          picked: isPicked,
+          assignedTo: getUserEmail(adminOrder.picker),
+          assignedName: getUserDisplayName(adminOrder.picker)
         });
       }
     }
+  }
+
+  // If status is 'new' but items are assigned to pickers, promote status to 'picking'
+  if (status === 'new' && generatedItems.some(i => i.assignedTo)) {
+    status = 'picking';
   }
 
   return {
@@ -153,20 +232,18 @@ function adminToRmo(adminOrder) {
     status: status,
     items: generatedItems,
     bags: adminOrder.bags || 0,
-    assignedTo: (adminOrder.driver && ['assigning', 'assigned', 'delivered', 'failed'].includes(status))
-      ? (adminOrder.driver.includes('@') ? adminOrder.driver : `${adminOrder.driver}@rmo.qa`)
-      : (adminOrder.picker
-          ? (adminOrder.picker.includes('@') ? adminOrder.picker : `${adminOrder.picker}@rmo.qa`)
-          : (adminOrder.packer
-              ? (adminOrder.packer.includes('@') ? adminOrder.packer : `${adminOrder.packer}@rmo.qa`)
-              : null)),
+    assignedTo: ['assigning', 'assigned', 'started', 'delivered', 'failed'].includes(status)
+      ? getUserEmail(adminOrder.driver)
+      : (['packed', 'packing'].includes(status)
+          ? getUserEmail(adminOrder.packer)
+          : getUserEmail(adminOrder.picker)),
     date: `${adminOrder.date || ''} • ${adminOrder.time || ''}`,
     // Preserve extra fields
-    pickedBy: adminOrder.picker ? (adminOrder.picker.includes('@') ? adminOrder.picker : `${adminOrder.picker}@rmo.qa`) : null,
-    pickerName: adminOrder.picker || null,
-    packedBy: adminOrder.packer ? (adminOrder.packer.includes('@') ? adminOrder.packer : `${adminOrder.packer}@rmo.qa`) : null,
-    packerName: adminOrder.packer || null,
-    driverEmail: adminOrder.driver ? (adminOrder.driver.includes('@') ? adminOrder.driver : `${adminOrder.driver}@rmo.qa`) : null,
+    pickedBy: getUserEmail(adminOrder.picker),
+    pickerName: getUserDisplayName(adminOrder.picker),
+    packedBy: getUserEmail(adminOrder.packer),
+    packerName: getUserDisplayName(adminOrder.packer),
+    driverEmail: getUserEmail(adminOrder.driver),
     tags: adminOrder.tags || [],
     payment: adminOrder.payment || null,
     lat: adminOrder.lat || null,
@@ -174,6 +251,8 @@ function adminToRmo(adminOrder) {
     returnItems: adminOrder.returnItems || [],
     returns: adminOrder.returns || null,
     bagVerificationStatus: adminOrder.bagVerificationStatus || null,
+    isApprovedForPicking: adminOrder.isApprovedForPicking !== false,
+    approvedBy: adminOrder.approvedBy || null,
     zone: adminOrder.zone || (adminOrder.city && adminOrder.city.toLowerCase().startsWith('zone') ? adminOrder.city : 'West Bay'),
   };
 }
@@ -260,85 +339,618 @@ export function findManagedUser(email) {
 // Seed shared orders for port 5174 if not present (Demo Mode)
 export function seedSharedOrdersForRmo() {
   if (!isDemoMode()) return;
+
+  const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const defaultShared = [
+    {
+      id: "HM68230",
+      customerId: "cust-68230",
+      date: "Jul 9",
+      time: "10:30",
+      customer: { name: "Aisha Al-Kwari", email: "aisha.kwari@example.com", phone: "33887766" },
+      items: 2,
+      status: "Picked",
+      picker: "picker@rmo.qa",
+      packer: null,
+      city: "Al Waab, Doha",
+      total: 850,
+      itemsList: [
+        {
+          id: "item-68230-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          qty: 2,
+          price: 31.0,
+          fc: "F01",
+          status: "Prepared",
+          itemType: "FC"
+        },
+        {
+          id: "item-68230-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Prepared",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM68231",
+      customerId: "cust-68231",
+      date: "Jul 9",
+      time: "11:00",
+      customer: { name: "Nasser Al-Emadi", email: "nasser.emadi@example.com", phone: "55667788" },
+      items: 1,
+      status: "Packing",
+      picker: "picker@rmo.qa",
+      packer: "packer@rmo.qa",
+      city: "The Pearl, Doha",
+      total: 1199,
+      itemsList: [
+        {
+          id: "item-68231-1",
+          name: "Stokke Tripp Trapp High Chair (Oak)",
+          sku: "ST-TTHC-OAK",
+          qty: 1,
+          price: 1199.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1"
+        }
+      ]
+    },
+    {
+      id: "HM68232",
+      customerId: "cust-68232",
+      date: "Jul 9",
+      time: "09:15",
+      customer: { name: "Jassim Al-Sada", email: "jassim.sada@example.com", phone: "33221199" },
+      items: 1,
+      status: "Ready to Assign",
+      picker: "picker@rmo.qa",
+      packer: "packer@rmo.qa",
+      bags: 1,
+      city: "Doha",
+      total: 3999,
+      itemsList: [
+        {
+          id: "item-68232-1",
+          name: "Mima Xari Stroller (Camel)",
+          sku: "MX-STR-CAM",
+          qty: 1,
+          price: 3999.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1"
+        }
+      ]
+    },
+    {
+      id: "HM68229",
+      customerId: "cust-68229",
+      date: "Jul 9",
+      time: "11:30",
+      customer: { name: "Omar Farooq", email: "omar.farooq@example.com", phone: "55443322" },
+      items: 2,
+      status: "Driver Accepted",
+      driver: "driver@rmo.qa",
+      driverStatus: "Assigned",
+      city: "The Pearl, Doha",
+      total: 2798,
+      bags: 2,
+      bagVerificationStatus: "pending",
+      zone: "The Pearl",
+      lat: 25.3713,
+      lng: 51.5476,
+      itemsList: [
+        {
+          id: "item-68229-1",
+          name: "Happy Hop 6-in-1 Play Center",
+          sku: "9060",
+          barcode: "90600000001",
+          qty: 1,
+          price: 1999.0,
+          fc: "F01",
+          status: "Prepared",
+          itemType: "FC"
+        },
+        {
+          id: "item-68229-2",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "56100000002",
+          qty: 1,
+          price: 799.0,
+          fc: "MWO",
+          status: "Prepared",
+          itemType: "MWH"
+        }
+      ]
+    },
+    {
+      id: "HM99002",
+      customerId: "cust-99002",
+      date: "Jul 9",
+      time: "12:15",
+      customer: { name: "Fatima Al-Thani", email: "fatima.thani@example.com", phone: "33442211" },
+      items: 1,
+      status: "Started",
+      driver: "driver@rmo.qa",
+      driverStatus: "Started",
+      city: "West Bay, Doha",
+      total: 1299,
+      bags: 1,
+      bagVerificationStatus: "verified",
+      zone: "West Bay",
+      lat: 25.3286,
+      lng: 51.5310,
+      itemsList: [
+        {
+          id: "item-99002-1",
+          name: "Bestway H2Ogo! Leap & Play Mega Water Park",
+          sku: "53427",
+          barcode: "53427000005",
+          qty: 1,
+          price: 1299.0,
+          fc: "F01",
+          status: "Prepared",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM64110",
+      customerId: "cust-64110",
+      date: "May 27",
+      time: "10:15",
+      customer: { name: "Dana Al-Thani", email: "dana.thani@gmail.com", phone: "55223344" },
+      items: 2,
+      status: "New",
+      city: "West Bay",
+      total: 5198,
+      itemsList: [
+        {
+          id: "vl-item-1",
+          name: "Mima Xari Stroller (Camel)",
+          sku: "MX-STR-CAM",
+          barcode: "MXSTRCAM001",
+          qty: 1,
+          price: 3999.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1"
+        },
+        {
+          id: "vl-item-2",
+          name: "Stokke Tripp Trapp High Chair (Oak)",
+          sku: "ST-TTHC-OAK",
+          barcode: "STTTHCOAK001",
+          qty: 1,
+          price: 1199.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1"
+        }
+      ]
+    },
+    {
+      id: "HM99001",
+      customerId: "cust-99001",
+      date: "Jun 16",
+      time: "14:00",
+      customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
+      items: 2,
+      status: "Picking",
+      picker: "picker@rmo.qa, nijad@rmo.qa",
+      city: "Doha",
+      total: 2198,
+      itemsList: [
+        {
+          id: "vl-item-3",
+          name: "Chicco Next2Me Side Sleeping Crib",
+          sku: "CC-N2M-CRIB",
+          barcode: "CCN2MCRIB01",
+          qty: 1,
+          price: 899.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil"
+        },
+        {
+          id: "vl-item-4",
+          name: "Nuna Leaf Grow Lounger",
+          sku: "NL-GROW-LNG",
+          barcode: "NLGROWLNG01",
+          qty: 1,
+          price: 1299.0,
+          fc: "VL_HMA",
+          status: "Prepared",
+          itemType: "VL_HMA",
+          locationId: "loc-1",
+          pickedBy: "nijad@rmo.qa",
+          pickerName: "Nijad"
+        }
+      ]
+    },
+    {
+      id: "HM99005",
+      customerId: "cust-99005",
+      date: "Jun 27",
+      time: "10:55",
+      customer: { name: "Khalid Al-Nuaimi", email: "khalid.nuaimi@example.com", phone: "55776688" },
+      items: 3,
+      status: "New",
+      city: "Doha",
+      total: 3197,
+      itemsList: [
+        {
+          id: "test-item-1",
+          name: "Happy Hop 6-in-1 Play Center",
+          sku: "9060",
+          barcode: "90600000001",
+          qty: 1,
+          price: 1999.0,
+          fc: "F01",
+          status: "Prepared",
+          itemType: "FC"
+        },
+        {
+          id: "test-item-2",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "56100000002",
+          qty: 1,
+          price: 799.0,
+          fc: "MWO",
+          status: "Prepared",
+          itemType: "MWH"
+        },
+        {
+          id: "test-item-3",
+          name: "Smoby Green XL Slide",
+          sku: "820304",
+          barcode: "82030400003",
+          qty: 1,
+          price: 399.0,
+          fc: "VS",
+          status: "Prepared",
+          itemType: "VL_SUPPLIER"
+        }
+      ]
+    },
+    {
+      id: "HM99006",
+      customerId: "cust-99006",
+      date: todayLabel,
+      time: "11:15",
+      customer: { name: "Fatima Al-Suwaidi", email: "fatima.suwaidi@example.com", phone: "33998877" },
+      items: 1,
+      status: "New",
+      city: "Doha",
+      total: 31,
+      itemsList: [
+        {
+          id: "dummy-item-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99007",
+      customerId: "cust-99007",
+      date: todayLabel,
+      time: "11:20",
+      customer: { name: "Hamad Al-Kaabi", email: "hamad.kaabi@example.com", phone: "55889900" },
+      items: 2,
+      status: "Picking",
+      picker: "picker@rmo.qa",
+      city: "Al Rayyan, Doha",
+      total: 630,
+      itemsList: [
+        {
+          id: "dummy-item-2-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-item-2-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99010",
+      customerId: "cust-99010",
+      date: todayLabel,
+      time: "14:15",
+      customer: { name: "Mariam Al-Kabi", email: "mariam.kabi@example.com", phone: "33881122" },
+      items: 4,
+      status: "New",
+      city: "Doha",
+      total: 1458,
+      itemsList: [
+        {
+          id: "dummy-10-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-10-2",
+          name: "Wet Wipes 3-Pack",
+          sku: "HM-1100",
+          barcode: "HM11000001",
+          qty: 1,
+          price: 29.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-10-3",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-10-4",
+          name: "Bestway Apx 365 Round Pool Set (12' x 30\")",
+          sku: "561KC",
+          barcode: "56100000002",
+          qty: 1,
+          price: 799.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99011",
+      customerId: "cust-99011",
+      date: todayLabel,
+      time: "14:30",
+      customer: { name: "Tariq Al-Mansoori", email: "tariq.mansoori@example.com", phone: "55441199" },
+      items: 3,
+      status: "Picking",
+      picker: "picker@rmo.qa",
+      city: "West Bay, Doha",
+      total: 659,
+      itemsList: [
+        {
+          id: "dummy-11-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Pending",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-11-2",
+          name: "Wet Wipes 3-Pack",
+          sku: "HM-1100",
+          barcode: "HM11000001",
+          qty: 1,
+          price: 29.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-11-3",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99012",
+      customerId: "cust-99012",
+      date: todayLabel,
+      time: "14:45",
+      customer: { name: "Hind Al-Sulaiti", email: "hind.sulaiti@example.com", phone: "66770011" },
+      items: 2,
+      status: "Picking",
+      picker: "picker@rmo.qa",
+      pickingStatus: "1/2 Picked",
+      city: "The Pearl, Doha",
+      total: 630,
+      itemsList: [
+        {
+          id: "dummy-12-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Prepared",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-12-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99013",
+      customerId: "cust-99013",
+      date: todayLabel,
+      time: "15:00",
+      customer: { name: "Rashid Al-Naimi", email: "rashid.naimi@example.com", phone: "33992288" },
+      items: 3,
+      status: "Picking",
+      picker: "Ahmed Khalil, Nijad",
+      pickingStatus: "2/3 Picked",
+      city: "Lusail, Doha",
+      total: 659,
+      itemsList: [
+        {
+          id: "dummy-13-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Prepared",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-13-2",
+          name: "Wet Wipes 3-Pack",
+          sku: "HM-1100",
+          barcode: "HM11000001",
+          qty: 1,
+          price: 29.0,
+          fc: "F01",
+          status: "Prepared",
+          pickedBy: "nijad@rmo.qa",
+          pickerName: "Nijad",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-13-3",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Pending",
+          itemType: "FC"
+        }
+      ]
+    },
+    {
+      id: "HM99014",
+      customerId: "cust-99014",
+      date: todayLabel,
+      time: "15:15",
+      customer: { name: "Reem Al-Thani", email: "reem.thani@example.com", phone: "55113344" },
+      items: 2,
+      status: "Picked",
+      picker: "picker@rmo.qa",
+      pickingStatus: "2/2 Picked",
+      city: "Al Waab, Doha",
+      total: 630,
+      itemsList: [
+        {
+          id: "dummy-14-1",
+          name: "Frida Baby Saline Spray",
+          sku: "NS-SPNC-1P-0200",
+          barcode: "072239306390",
+          qty: 1,
+          price: 31.0,
+          fc: "F01",
+          status: "Prepared",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        },
+        {
+          id: "dummy-14-2",
+          name: "SmarTrike STR3 6-in-1 Stroller-Trike (Black)",
+          sku: "5021933",
+          barcode: "502193300001",
+          qty: 1,
+          price: 599.0,
+          fc: "F01",
+          status: "Prepared",
+          pickedBy: "picker@rmo.qa",
+          pickerName: "Ahmed Khalil",
+          itemType: "FC"
+        }
+      ]
+    }
+  ];
+
   const existing = localStorage.getItem(STORAGE_KEY);
   if (!existing) {
-    const defaultShared = [
-      {
-        id: "HM64110",
-        customerId: "cust-64110",
-        date: "May 27",
-        time: "10:15",
-        customer: { name: "Dana Al-Thani", email: "dana.thani@gmail.com", phone: "55223344" },
-        items: 2,
-        status: "New",
-        city: "West Bay",
-        total: 5198,
-        itemsList: [
-          {
-            id: "vl-item-1",
-            name: "Mima Xari Stroller (Camel)",
-            sku: "MX-STR-CAM",
-            barcode: "MXSTRCAM001",
-            qty: 1,
-            price: 3999.0,
-            fc: "VL_HMA",
-            status: "Prepared",
-            itemType: "VL_HMA",
-            locationId: "loc-1"
-          },
-          {
-            id: "vl-item-2",
-            name: "Stokke Tripp Trapp High Chair (Oak)",
-            sku: "ST-TTHC-OAK",
-            barcode: "STTTHCOAK001",
-            qty: 1,
-            price: 1199.0,
-            fc: "VL_HMA",
-            status: "Prepared",
-            itemType: "VL_HMA",
-            locationId: "loc-1"
-          }
-        ]
-      },
-      {
-        id: "HM99001",
-        customerId: "cust-99001",
-        date: "Jun 16",
-        time: "14:00",
-        customer: { name: "Salem Al-Marri", email: "salem.marri@example.com", phone: "33224455" },
-        items: 2,
-        status: "New",
-        city: "Doha",
-        total: 2198,
-        itemsList: [
-          {
-            id: "vl-item-3",
-            name: "Chicco Next2Me Side Sleeping Crib",
-            sku: "CC-N2M-CRIB",
-            barcode: "CCN2MCRIB01",
-            qty: 1,
-            price: 899.0,
-            fc: "VL_HMA",
-            status: "Prepared",
-            itemType: "VL_HMA",
-            locationId: "loc-1"
-          },
-          {
-            id: "vl-item-4",
-            name: "Nuna Leaf Grow Lounger",
-            sku: "NL-GROW-LNG",
-            barcode: "NLGROWLNG01",
-            qty: 1,
-            price: 1299.0,
-            fc: "VL_HMA",
-            status: "Prepared",
-            itemType: "VL_HMA",
-            locationId: "loc-1"
-          }
-        ]
-      }
-    ];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultShared));
+  } else {
+    try {
+      const parsed = JSON.parse(existing);
+      const missingOrders = defaultShared.filter(o => !parsed.some(existingOrder => existingOrder.id === o.id));
+      if (missingOrders.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([...parsed, ...missingOrders]));
+      } else {
+        const hasPackerOrders = parsed.some(o => o.id === "HM68230");
+        if (!hasPackerOrders) {
+          const defaultIds = new Set(defaultShared.map(o => o.id));
+          const filteredExisting = parsed.filter(o => !defaultIds.has(o.id));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([...defaultShared, ...filteredExisting]));
+        }
+      }
+    } catch (e) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultShared));
+    }
   }
 }
 

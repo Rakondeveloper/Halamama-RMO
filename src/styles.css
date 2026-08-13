@@ -463,6 +463,11 @@
   }
 }
 
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
 @media screen {
   .print-only {
     display: none !important;
@@ -470,6 +475,11 @@
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   html,
   body {
     height: auto !important;
@@ -500,5 +510,22 @@
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
+  }
+
+  .print-only table,
+  .print-only th,
+  .print-only td {
+    border-color: #cbd5e1 !important;
+    border-style: solid !important;
+  }
+
+  .invoice-summary-box {
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .invoice-paid-watermark {
+    color: rgba(15, 23, 42, 0.16) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

@@ -1,11 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CommentCell } from "./OrderTableRow";
+import { DeliveryDateCell } from "./DeliveryDateCell";
 import {
   getOrderItemsCount,
   parseTatHours,
+  getDisplayTat,
   statusDotClass,
+  getPickerDisplayName,
+  getUserDisplayName,
   type Order,
   type OrderStatus,
+  type LegacyTabId,
 } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import {
@@ -69,6 +75,7 @@ function statusBadgeClasses(status: OrderStatus): string {
 
 /* ─── TAT badge background/ring for urgency ───────────────────────────────── */
 function tatBadgeClasses(tat: string): string {
+  if (tat === "—") return "bg-muted text-muted-foreground ring-border";
   const hours = parseTatHours(tat);
   if (hours <= 2) return "bg-emerald-50 text-emerald-700 ring-emerald-200/50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-800/30";
   if (hours <= 12) return "bg-amber-50 text-amber-700 ring-amber-200/50 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/30";
@@ -85,6 +92,25 @@ function channelLabel(channel: string): string {
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+function getOrderPickers(order: Order): string[] {
+  const itemPickers = order.itemsList
+    ? Array.from(
+        new Set(
+          order.itemsList
+            .map((i) => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null))
+            .filter((p): p is string => Boolean(p))
+        )
+      )
+    : [];
+  if (itemPickers.length > 0) {
+    return itemPickers;
+  }
+  if (order.picker) {
+    return order.picker.split(",").map((p) => getPickerDisplayName(p.trim()));
+  }
+  return [];
+}
+
 export function OrderCard({
   order,
   selected,
@@ -93,6 +119,7 @@ export function OrderCard({
   onToggleExpand,
   onViewOrder,
   onAction,
+  activeTab,
 }: {
   order: Order;
   selected: boolean;
@@ -101,9 +128,11 @@ export function OrderCard({
   onToggleExpand: () => void;
   onViewOrder: (order: Order) => void;
   onAction?: (action: "zone" | "driver" | "print" | "giftPrint" | "export", order: Order) => void;
+  activeTab?: LegacyTabId;
 }) {
   const itemCount = getOrderItemsCount(order);
   const isFulfilled = order.status === "Delivered";
+  const displayTat = getDisplayTat(order, activeTab);
 
   return (
     <article
@@ -129,7 +158,13 @@ export function OrderCard({
               aria-label={`Select order ${order.id}`}
               className="shrink-0"
             />
-            <span className="font-mono text-[15px] font-bold tracking-tight text-foreground">
+            <span
+              className="font-mono text-[15px] font-bold tracking-tight text-primary hover:underline cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewOrder(order);
+              }}
+            >
               #{order.id}
             </span>
           </div>
@@ -155,21 +190,29 @@ export function OrderCard({
           </span>
         </div>
 
+        {/* ── Delivery Date ────────────────────────────────────────────────── */}
+        <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">Delivery:</span>
+          <DeliveryDateCell order={order} compact />
+        </div>
+
         {/* ── TAT + Channel row ──────────────────────────────────────────── */}
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset",
-              tatBadgeClasses(order.tat),
+              tatBadgeClasses(displayTat),
             )}
           >
             <Timer className="h-3 w-3 shrink-0" aria-hidden />
-            {order.tat} TAT
+            {displayTat} TAT
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/40 dark:bg-muted/30">
-            <Globe className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
-            {channelLabel(order.channel)}
-          </span>
+          {activeTab !== "New" && activeTab !== "All" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-inset ring-border/40 dark:bg-muted/30">
+              <Globe className="h-3 w-3 shrink-0 opacity-60" aria-hidden />
+              {channelLabel(order.channel)}
+            </span>
+          )}
         </div>
 
         {/* ── Customer block ─────────────────────────────────────────────── */}
@@ -218,18 +261,38 @@ export function OrderCard({
           </span>
 
           {/* Picker */}
-          {order.picker && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-[3px] text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200/50 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/30">
-              <User className="h-2.5 w-2.5" aria-hidden />
-              Picker: {order.picker}
-            </span>
-          )}
+          {(() => {
+            const pickers = getOrderPickers(order);
+            if (pickers.length === 0) return null;
+            return (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-[3px] text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-200/50 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-800/30">
+                <User className="h-2.5 w-2.5" aria-hidden />
+                Picker: {pickers.join(", ")}
+              </span>
+            );
+          })()}
 
           {/* Packer */}
           {order.packer && (
             <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-[3px] text-[10px] font-semibold text-teal-700 ring-1 ring-inset ring-teal-200/50 dark:bg-teal-950/40 dark:text-teal-300 dark:ring-teal-800/30">
               <Package className="h-2.5 w-2.5" aria-hidden />
-              Packer: {order.packer}
+              Packer: {getUserDisplayName(order.packer)}
+            </span>
+          )}
+
+          {/* Driver */}
+          {order.driver && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-[3px] text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200/50 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/30">
+              <Truck className="h-2.5 w-2.5" aria-hidden />
+              Driver: {getUserDisplayName(order.driver)}
+            </span>
+          )}
+
+          {/* Bags */}
+          {order.bags !== undefined && order.bags !== null && order.bags > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-[3px] text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-200/50 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-800/30">
+              <Package className="h-2.5 w-2.5" aria-hidden />
+              {order.bags} {order.bags === 1 ? "Bag" : "Bags"}
             </span>
           )}
 
@@ -239,6 +302,14 @@ export function OrderCard({
               Return ×{order.returns.count}
             </span>
           )}
+        </div>
+
+        {/* ── Comment Section ────────────────────────────────────────────── */}
+        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            Comment
+          </div>
+          <CommentCell order={order} />
         </div>
       </div>
 
