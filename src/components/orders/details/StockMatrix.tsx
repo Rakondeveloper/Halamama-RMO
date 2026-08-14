@@ -2,9 +2,9 @@ import { XCircle, CheckCircle2 } from "lucide-react";
 import type { EnrichedOrder } from "@/lib/orders";
 
 export function StockMatrix({ order }: { order: EnrichedOrder }) {
-  // Extract all unique SKUs from items to build columns
-  const skus = Array.from(new Set(order.itemsList.map(i => i.sku)));
-  const getProductForSku = (sku: string) => order.itemsList.find(i => i.sku === sku);
+  const itemsList = order.itemsList || [];
+  const skus = Array.from(new Set(itemsList.map(i => i.sku)));
+  const getProductForSku = (sku: string) => itemsList.find(i => i.sku === sku);
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
@@ -37,7 +37,7 @@ export function StockMatrix({ order }: { order: EnrichedOrder }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {order.matrix.map((row) => (
+            {(order.matrix || []).map((row) => (
               <tr key={row.fc} className="hover:bg-muted/5 transition-colors">
                 <td className="px-5 py-4">
                   <div className="font-semibold text-foreground">{row.fc}</div>

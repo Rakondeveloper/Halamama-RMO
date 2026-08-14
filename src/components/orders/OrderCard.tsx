@@ -8,6 +8,7 @@ import {
   getDisplayTat,
   statusDotClass,
   getPickerDisplayName,
+  getItemPickerIdentifier,
   getUserDisplayName,
   type Order,
   type OrderStatus,
@@ -97,7 +98,13 @@ function getOrderPickers(order: Order): string[] {
     ? Array.from(
         new Set(
           order.itemsList
-            .map((i) => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null))
+            .map((i) => {
+              const id = getItemPickerIdentifier(i);
+              if (!id || id === "any" || id === "Any Picker") return null;
+              const name = getPickerDisplayName(id);
+              if (!name || name === "Any Picker" || name === "Unknown Picker") return null;
+              return name;
+            })
             .filter((p): p is string => Boolean(p))
         )
       )
@@ -106,7 +113,12 @@ function getOrderPickers(order: Order): string[] {
     return itemPickers;
   }
   if (order.picker) {
-    return order.picker.split(",").map((p) => getPickerDisplayName(p.trim()));
+    const rawList = order.picker
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p && p !== "any" && p !== "Any Picker");
+    const mapped = Array.from(new Set(rawList.map((p) => getPickerDisplayName(p)).filter((p) => p && p !== "Unknown Picker")));
+    if (mapped.length > 0) return mapped;
   }
   return [];
 }

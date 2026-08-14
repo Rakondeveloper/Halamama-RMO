@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { EnrichedOrder } from "@/lib/orders";
+import { type EnrichedOrder, getPickerDisplayName, getItemPickerIdentifier } from "@/lib/orders";
 import { assignItemPicker, assignRemainingItems, approveOrderForPicking, approveItemForPicking } from "@/lib/api/services";
 import { getUsers } from "@/lib/sync";
 import { cn } from "@/lib/utils";
@@ -62,11 +62,12 @@ const LOCATION_INFO: Record<
 
 export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
   const queryClient = useQueryClient();
-  const fcs = Array.from(new Set(order.itemsList.map((item) => item.fc)));
+  const rawItemsList = order.itemsList || [];
+  const fcs = Array.from(new Set(rawItemsList.map((item) => item.fc || "F01")));
 
   // Map each item ID to its global 1-based sequential item index in the order
   const itemIndexMap = new Map<string, number>(
-    order.itemsList.map((item, idx) => [item.id, idx + 1])
+    rawItemsList.map((item, idx) => [item.id, idx + 1])
   );
 
   // Subscribe to scheduled installations store for reactivity
@@ -156,7 +157,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
 
   const handleConfirmUnassign = async () => {
     if (itemToUnassign) {
-      const pName = itemToUnassign.pickerName || (itemToUnassign.pickedBy === "any" ? "Any Picker" : itemToUnassign.pickedBy) || "assigned picker";
+      const pName = getPickerDisplayName(getItemPickerIdentifier(itemToUnassign));
       const targetId = itemToUnassign.id || itemToUnassign.sku;
 
       // Optimistically update query data for immediate re-render
@@ -235,7 +236,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
     <section className="space-y-6">
       <div className="space-y-4">
         {fcs.map((fcId) => {
-          const items = order.itemsList.filter((item) => item.fc === fcId);
+          const items = rawItemsList.filter((item) => (item.fc || "F01") === fcId);
           const info = LOCATION_INFO[fcId] || {
             name: items[0]?.fcName || fcId,
             address: "Qatar",
@@ -268,8 +269,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                     const pickedCount = items.filter((i) => i.status === "Prepared" || i.status === "Picked").length;
                     const totalCount = items.length;
                     const isAllPicked = pickedCount === totalCount;
-                    return (
-                      <>
+                      return (
                         <span className={cn(
                           "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border",
                           isAllPicked
@@ -279,47 +279,8 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           {pickedCount}/{totalCount} Items Picked
                         </span>
-                        {!isAllPicked && (
-                          <Select
-                            onValueChange={async (value) => {
-                              if (value === "any") {
-                                await assignRemainingItems(order.id, "any", "");
-                                queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
-                                queryClient.invalidateQueries({ queryKey: orderKeys.all });
-                                toast.success("Remaining items opened to all pickers");
-                                return;
-                              }
-                              const pickerMap: Record<string, string> = {
-                                "picker@rmo.qa": "Ahmed Khalil",
-                                "nijad@rmo.qa": "Nijad",
-                                "mashood@rmo.qa": "Mashood",
-                                "packer@rmo.qa": "Sara Al-Thani",
-                              };
-                              const pName = pickerMap[value] || value.split("@")[0];
-                              await assignRemainingItems(order.id, value, pName);
-                              queryClient.invalidateQueries({ queryKey: orderKeys.detail(order.id) });
-                              queryClient.invalidateQueries({ queryKey: orderKeys.all });
-                              toast.success(`Assigned remaining items to ${pName}`);
-                            }}
-                          >
-                            <SelectTrigger className="h-7 text-xs font-semibold border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-full px-3 gap-1.5 cursor-pointer shrink-0 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-800">
-                              <UserPlus className="h-3.5 w-3.5" />
-                              <span>Assign Remaining ({totalCount - pickedCount})</span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getUsers()
-                                .filter((u) => u.role === "picker" && u.status === "active")
-                                .map((p) => (
-                                  <SelectItem key={p.id} value={p.email}>
-                                    {p.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </>
-                    );
-                  })()}
+                      );
+                    })()}
                 </div>
               </div>
 
@@ -328,7 +289,10 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                   const itemIsScheduled = isItemScheduled(order.id, item.sku);
                   const itemIndex = itemIndexMap.get(item.id) ?? 1;
                   const isPicked = item.status === "Prepared" || item.status === "Picked";
-                  const isAssigned = Boolean(item.pickedBy || item.pickerName);
+                  const isSpecificAssigned = Boolean(
+                    (item.pickedBy && item.pickedBy !== "any") ||
+                    (item.pickerName && item.pickerName !== "Any Picker")
+                  );
 
                   return (
                     <article
@@ -337,7 +301,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                         "grid gap-4 p-4 transition-colors sm:grid-cols-[auto_72px_1fr_auto] sm:items-center sm:p-5 border-l-4",
                         isPicked
                           ? "border-l-emerald-500 bg-emerald-50/25 hover:bg-emerald-50/35 dark:border-l-emerald-400 dark:bg-emerald-950/10 dark:hover:bg-emerald-950/20"
-                          : isAssigned
+                          : isSpecificAssigned
                           ? "border-l-amber-500 bg-amber-50/20 hover:bg-amber-50/30 dark:border-l-amber-400 dark:bg-amber-950/10 dark:hover:bg-amber-950/20"
                           : "border-l-slate-400 bg-slate-50/40 hover:bg-slate-50/60 dark:border-l-slate-600 dark:bg-slate-900/10 dark:hover:bg-slate-900/20"
                       )}
@@ -380,31 +344,19 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
 
                         <div className="flex flex-wrap items-center gap-2 pt-1 sm:flex-nowrap">
                           {/* Fulfillment status — always visible */}
-                          <ItemStatus status={item.status} isAssigned={isAssigned} />
+                          <ItemStatus status={item.status} isAssigned={isSpecificAssigned} />
 
                           {/* Item Picker Badge / Dropdown Action */}
                           {isPicked ? (
-                            (item.pickerName || item.pickedBy) && (
-                              <span className={cn(
-                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shrink-0",
-                                item.pickedBy === "any" || item.pickerName === "Any Picker"
-                                  ? "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-400"
-                                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"
-                              )}>
-                                <Package className="h-3.5 w-3.5" />
-                                Picker: {item.pickerName || (item.pickedBy === "any" ? "Any Picker" : item.pickedBy)}
-                              </span>
-                            )
-                          ) : isAssigned ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 px-2.5 py-1 text-xs font-semibold shrink-0 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
+                              <Package className="h-3.5 w-3.5" />
+                              Picker: {getPickerDisplayName(getItemPickerIdentifier(item))}
+                            </span>
+                          ) : isSpecificAssigned ? (
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={cn(
-                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold shrink-0",
-                                item.pickedBy === "any" || item.pickerName === "Any Picker"
-                                  ? "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-400"
-                                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400"
-                              )}>
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 text-rose-700 px-2.5 py-1 text-xs font-semibold shrink-0 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
                                 <Package className="h-3.5 w-3.5" />
-                                Picker: {item.pickerName || (item.pickedBy === "any" ? "Any Picker" : item.pickedBy)}
+                                Picker: {getPickerDisplayName(getItemPickerIdentifier(item))}
                               </span>
                               <button
                                 type="button"
@@ -605,7 +557,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
               <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-relaxed">
                 Are you sure you want to unassign{" "}
                 <strong className="text-foreground">
-                  {itemToUnassign?.pickerName || (itemToUnassign?.pickedBy === "any" ? "Any Picker" : itemToUnassign?.pickedBy) || "this picker"}
+                  {getPickerDisplayName(getItemPickerIdentifier(itemToUnassign))}
                 </strong>{" "}
                 from this item?
               </DialogDescription>
@@ -625,7 +577,7 @@ export function FulfillmentSection({ order }: { order: EnrichedOrder }) {
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className="text-[10px] sm:text-xs text-muted-foreground">SKU: {itemToUnassign.sku}</span>
                     <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400">
-                      Picker: {itemToUnassign.pickerName || (itemToUnassign.pickedBy === "any" ? "Any Picker" : itemToUnassign.pickedBy)}
+                      Picker: {getPickerDisplayName(getItemPickerIdentifier(itemToUnassign))}
                     </span>
                   </div>
                 </div>

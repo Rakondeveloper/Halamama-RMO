@@ -28,7 +28,7 @@ type EventType = OrderTimelineEvent["type"];
 
 export function ActivityTimeline({ order }: { order: EnrichedOrder }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const mainTimeline = order.timeline.filter(
+  const mainTimeline = (order.timeline || []).filter(
     (event) =>
       ![
         "recalculated",

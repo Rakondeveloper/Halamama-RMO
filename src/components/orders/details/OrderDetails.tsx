@@ -11,6 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isUnpaidPayLaterOrder } from "@/lib/orders";
 
+import { Component, type ReactNode } from "react";
+
+class SafeSection extends Component<{ children: ReactNode; fallbackTitle?: string }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("[OrderDetails] Section error caught:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
 export function OrderDetails({ orderId }: { orderId: string }) {
   const navigate = useNavigate();
   const { data: order, isLoading, error } = useOrderDetails(orderId);
@@ -93,21 +111,23 @@ export function OrderDetails({ orderId }: { orderId: string }) {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         {/* Left Column: Main Content */}
         <div className="flex min-w-0 flex-col gap-6">
-          <OrderHeader order={order} />
-          <FulfillmentSection order={order} />
-          <PaymentSummary order={order} />
-          <ReturnsSection order={order} />
+          <SafeSection><OrderHeader order={order} /></SafeSection>
+          <SafeSection><FulfillmentSection order={order} /></SafeSection>
+          <SafeSection><PaymentSummary order={order} /></SafeSection>
+          <SafeSection><ReturnsSection order={order} /></SafeSection>
         </div>
 
         {/* Right Column: Sidebar */}
         <div className="flex min-w-0 flex-col gap-6">
-          <CustomerSidebar 
-            order={order} 
-            onNotesUpdate={(newNotes) => {
-              updateNotes.mutate({ orderId, notes: newNotes });
-            }}
-          />
-          <ActivityTimeline order={order} />
+          <SafeSection>
+            <CustomerSidebar 
+              order={order} 
+              onNotesUpdate={(newNotes) => {
+                updateNotes.mutate({ orderId, notes: newNotes });
+              }}
+            />
+          </SafeSection>
+          <SafeSection><ActivityTimeline order={order} /></SafeSection>
         </div>
       </div>
     </div>

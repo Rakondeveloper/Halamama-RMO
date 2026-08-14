@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { getOrderItemsCount, getDisplayTat, tatColorClass, getPickerDisplayName, type Order } from "@/lib/orders";
+import { getOrderItemsCount, getDisplayTat, tatColorClass, getPickerDisplayName, getItemPickerIdentifier, type Order } from "@/lib/orders";
 import { approveOrderForPicking } from "@/lib/api/services";
 import { cn } from "@/lib/utils";
 import { Eye, Package, ShieldCheck } from "lucide-react";
@@ -107,11 +107,29 @@ export function PickingTable({
                 <td className="py-3 pr-3 align-middle">
                   {(() => {
                     const itemPickers = order.itemsList
-                      ? Array.from(new Set(order.itemsList.map(i => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null)).filter((p): p is string => Boolean(p))))
+                      ? Array.from(
+                          new Set(
+                            order.itemsList
+                              .map((i) => {
+                                const id = getItemPickerIdentifier(i);
+                                if (!id || id === "any" || id === "Any Picker") return null;
+                                const name = getPickerDisplayName(id);
+                                if (!name || name === "Any Picker" || name === "Unknown Picker") return null;
+                                return name;
+                              })
+                              .filter((p): p is string => Boolean(p))
+                          )
+                        )
                       : [];
-                    const pickersToDisplay = itemPickers.length > 0 
-                      ? itemPickers 
-                      : (order.picker ? order.picker.split(",").map(p => getPickerDisplayName(p.trim())) : []);
+                    const rawOrderPickers = order.picker
+                      ? order.picker
+                          .split(",")
+                          .map((p) => p.trim())
+                          .filter((p) => p && p !== "any" && p !== "Any Picker")
+                          .map((p) => getPickerDisplayName(p))
+                          .filter((p) => p && p !== "Unknown Picker")
+                      : [];
+                    const pickersToDisplay = itemPickers.length > 0 ? itemPickers : Array.from(new Set(rawOrderPickers));
 
                     if (pickersToDisplay.length === 0) {
                       return <span className="text-xs text-muted-foreground">—</span>;

@@ -350,11 +350,12 @@ export interface EnrichedOrder extends Order {
 function buildTimelineFor(base: Order, items?: OrderItemType[]): OrderTimelineEvent[] {
   // ── helpers ────────────────────────────────────────────────────────────────
   const addMin = (date: string, time: string, mins: number): { date: string; time: string } => {
-    const [dh, dm] = time.split(":").map(Number);
-    const total = dh * 60 + dm + mins;
+    const safeTime = time && time.includes(":") ? time : "09:00";
+    const [dh, dm] = safeTime.split(":").map(Number);
+    const total = (isNaN(dh) ? 9 : dh) * 60 + (isNaN(dm) ? 0 : dm) + mins;
     return {
-      date,
-      time: `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
+      date: date || getTodayDateString(),
+      time: `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
     };
   };
   const fmt = (date: string, time: string, mins: number) => {
@@ -794,6 +795,8 @@ export function getMockOrderItems(
         bin: "B-100 / 1",
         status: "Prepared",
         itemType: "FC",
+        pickedBy: "picker@rmo.qa",
+        pickerName: "Ahmed Khalil",
       },
       {
         id: "test-item-2",
@@ -808,6 +811,8 @@ export function getMockOrderItems(
         bin: "B-100 / 2",
         status: "Prepared",
         itemType: "MWH",
+        pickedBy: "nijad@rmo.qa",
+        pickerName: "Nijad",
       },
       {
         id: "test-item-3",
@@ -822,6 +827,8 @@ export function getMockOrderItems(
         bin: "B-100 / 3",
         status: "Prepared",
         itemType: "VL_SUPPLIER",
+        pickedBy: "mashood@rmo.qa",
+        pickerName: "Mashood",
       },
     ];
   } else if (id === "HM68229") {
@@ -976,6 +983,8 @@ export function getMockOrderItems(
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "picker@rmo.qa",
+        pickerName: "Ahmed Khalil",
       },
       {
         id: "vl-item-2",
@@ -991,6 +1000,8 @@ export function getMockOrderItems(
         status: "Prepared",
         itemType: "VL_HMA",
         locationId: "loc-1",
+        pickedBy: "packer@rmo.qa",
+        pickerName: "Sara Al-Thani",
       },
     ];
   } else if (id === "HM99001") {
@@ -1312,36 +1323,79 @@ export function getEnrichedOrder(id: string): EnrichedOrder | undefined {
     : getMockOrderItems(id, baseOrder.items, baseOrder.status, baseOrder.pickingStatus);
   const calculatedTotal = getMockOrderTotal(id, baseOrder.items, baseOrder.payment, baseOrder.status, baseOrder.pickingStatus);
 
+  const totalCount = itemsList.reduce((acc, item) => acc + (item.qty || 1), 0);
+  const pickedCount = itemsList.reduce((acc, item) => {
+    const isPicked = item.status === "Prepared" || item.status === "Picked" || Boolean((item as any).picked);
+    return isPicked ? acc + (item.qty || 1) : acc;
+  }, 0);
+  const derivedPickingStatus = `${pickedCount}/${totalCount} Picked`;
+
+  let reconciledStatus = baseOrder.status;
+  const isSpecialOrTerminal = [
+    "Cancelled",
+    "Delivery Failed",
+    "Delivered",
+    "Flagged",
+    "Replacement",
+    "Exchange",
+    "Installation",
+    "PayLater",
+  ].includes(reconciledStatus);
+
+  if (!isSpecialOrTerminal) {
+    if (pickedCount === totalCount) {
+      if (reconciledStatus === "New" || reconciledStatus === "Unfulfilled" || reconciledStatus === "Picking") {
+        reconciledStatus = "Picked";
+      }
+    } else if (pickedCount > 0) {
+      if (reconciledStatus === "New" || reconciledStatus === "Unfulfilled" || reconciledStatus === "Picked" || reconciledStatus === "Packing" || reconciledStatus === "Ready to Assign") {
+        reconciledStatus = "Picking";
+      }
+    } else {
+      const hasAssignments = itemsList.some(
+        (i) => Boolean((i as any).pickedBy || (i as any).pickerName || (i as any).assignedTo)
+      );
+      if (reconciledStatus === "Picked" || reconciledStatus === "Packing" || reconciledStatus === "Ready to Assign") {
+        reconciledStatus = hasAssignments ? "Picking" : "New";
+      }
+    }
+  }
+
   return {
     ...baseOrder,
+    status: reconciledStatus,
+    pickingStatus: derivedPickingStatus,
     zone: "No Zone",
     itemsList,
     returnsList: baseOrder.returnItems && baseOrder.returnItems.length > 0
       ? baseOrder.returnItems
       : [],
     timeline: buildTimelineFor(baseOrder, itemsList),
-    payment: baseOrder.payment ? {
-      ...baseOrder.payment,
-      subtotal: calculatedTotal - (baseOrder.payment.shipping ?? 0) + (baseOrder.payment.discount ?? 0),
-      total: calculatedTotal,
-      balance: (baseOrder as any).paymentBalance !== undefined
+    payment: (() => {
+      const p = baseOrder.payment || {};
+      const method = p.method || (baseOrder as any).paymentMethod || "Cash";
+      const shipping = p.shipping ?? 10;
+      const discount = p.discount ?? 0;
+      const subtotal = calculatedTotal - shipping + discount;
+      const balance = (baseOrder as any).paymentBalance !== undefined
         ? (baseOrder as any).paymentBalance
-        : (calculatedTotal - (baseOrder.payment.totalPaid ?? 0)),
-      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance !== undefined
-        ? (baseOrder as any).paymentBalance
-        : (baseOrder.payment.balance ?? 0)),
-    } : {
-      method: ((baseOrder as any).paymentMethod as any) || "Cash",
-      total: calculatedTotal,
-      totalPaid: calculatedTotal - ((baseOrder as any).paymentBalance ?? 0),
-      cash: ((baseOrder as any).paymentMethod || "Cash") === "Cash" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
-      card: ((baseOrder as any).paymentMethod || "Cash") === "Card" ? calculatedTotal - ((baseOrder as any).paymentBalance ?? 0) : 0,
-      subtotal: calculatedTotal - 10,
-      discount: 0,
-      shipping: 10,
-      balance: ((baseOrder as any).paymentBalance ?? 0),
-      shippingMethod: "Standard Delivery",
-    },
+        : (p.balance ?? 0);
+      const totalPaid = p.totalPaid ?? (calculatedTotal - balance);
+      const cash = p.cash ?? (method === "Cash" ? totalPaid : 0);
+      const card = p.card ?? (method === "Card" ? totalPaid : 0);
+      return {
+        method,
+        subtotal,
+        discount,
+        shipping,
+        total: calculatedTotal,
+        balance,
+        totalPaid,
+        cash,
+        card,
+        shippingMethod: p.shippingMethod || "Standard Delivery",
+      };
+    })(),
     notes: baseOrder.notes || "Please leave at the door if no one answers.",
     shippingAddress: id === "HM99005" ? {
       line1: "Al Waab St",
@@ -1611,7 +1665,7 @@ export const MOCK_ORDERS: Order[] = [
     city: "Doha",
     coordinator: "-",
     driver: null,
-    picker: null,
+    picker: "Ahmed Khalil, Nijad, Mashood",
     packer: null,
     total: 3197,
     shopify: "Unfulfilled",
@@ -1766,7 +1820,7 @@ export const MOCK_ORDERS: Order[] = [
     city: "West Bay",
     coordinator: "-",
     driver: null,
-    picker: null,
+    picker: "Ahmed Khalil, Sara Al-Thani",
     packer: null,
     total: 630,
     shopify: "Unfulfilled",
@@ -1831,7 +1885,7 @@ export const MOCK_ORDERS: Order[] = [
     customer: { name: "Amira Haddad", email: "amira.h@gmail.com", phone: "66778899" },
     channel: "shopify",
     items: 5,
-    status: "Picked",
+    status: "Picking",
     city: "Doha",
     coordinator: "Omar",
     driver: null,
@@ -1839,8 +1893,8 @@ export const MOCK_ORDERS: Order[] = [
     packer: "mashood",
     total: 1250,
     shopify: "Pending",
-    pickingStatus: "5/5 Picked",
-    packingStatus: "3/5 Packed",
+    pickingStatus: "3/5 Picked",
+    packingStatus: "0/5 Packed",
     bags: 1,
     lat: 25.2764,
     lng: 51.5385,
@@ -2703,15 +2757,40 @@ export function getCustomerById(customerId: string): Order | undefined {
   return list[0];
 }
 
-/** Resolve any user email to display name from local user registry */
+/** Resolve any user email to display name for presentation UI only (pure read-only helper) */
 export function getUserDisplayName(userValue: string | null | undefined): string {
   if (!userValue) return "";
+  const val = userValue.trim();
+  if (!val) return "";
+  if (val === "any" || val === "Any Picker") return "Any Picker";
+
+  const knownMap: Record<string, string> = {
+    "picker@rmo.qa": "Ahmed Khalil",
+    "nijad@rmo.qa": "Nijad",
+    "mashood@rmo.qa": "Mashood",
+    "packer@rmo.qa": "Sara Al-Thani",
+    "driver1@rmo.qa": "Driver 1",
+    "driver1": "Driver 1",
+    "driver2": "Driver 2",
+    "adhil": "Adhil",
+    "rahul": "Rahul",
+    "irshad": "Irshad",
+  };
+
+  if (knownMap[val.toLowerCase()]) {
+    return knownMap[val.toLowerCase()];
+  }
+
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     try {
       const rawUsers = localStorage.getItem("hm_users");
       if (rawUsers) {
         const users = JSON.parse(rawUsers);
-        const found = users.find((u: any) => u.email === userValue || u.name === userValue);
+        const found = users.find((u: any) => 
+          (u.email && u.email.toLowerCase() === val.toLowerCase()) || 
+          (u.name && u.name.toLowerCase() === val.toLowerCase()) ||
+          (u.id && u.id === val)
+        );
         if (found && found.name) {
           return found.name;
         }
@@ -2720,8 +2799,36 @@ export function getUserDisplayName(userValue: string | null | undefined): string
       // ignore
     }
   }
-  return userValue;
+
+  if (val.includes("@")) {
+    const rawUsername = val.split("@")[0];
+    const words = rawUsername.split(/[._-]/).filter(Boolean);
+    if (words.length > 0) {
+      return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    }
+    return "Unknown Picker";
+  }
+
+  return val;
 }
 
-export const getPickerDisplayName = getUserDisplayName;
+export const getPickerDisplayName = (val: string | null | undefined): string => {
+  const resolved = getUserDisplayName(val);
+  return resolved || "Unknown Picker";
+};
+
+/** Resolves the presentational picker identifier from an item object based on pick state priority */
+export function getItemPickerIdentifier(item: { status?: string; pickedBy?: string; pickerName?: string } | null | undefined): string | null {
+  if (!item) return null;
+  const isPicked = item.status === "Prepared" || item.status === "Picked" || Boolean((item as any).picked);
+  if (isPicked) {
+    if (item.pickedBy && item.pickedBy !== "any") return item.pickedBy;
+    if (item.pickerName && item.pickerName !== "Any Picker") return item.pickerName;
+    return item.pickedBy || "picker@rmo.qa";
+  }
+  if (item.pickerName && item.pickerName !== "Any Picker") return item.pickerName;
+  if (item.pickedBy && item.pickedBy !== "any") return item.pickedBy;
+  if (item.pickedBy === "any" || item.pickerName === "Any Picker") return "Any Picker";
+  return null;
+}
 

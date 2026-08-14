@@ -81,7 +81,7 @@ export function ReturnsSection({ order }: { order: EnrichedOrder }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {order.returnsList.map((ret) => (
+                {(order.returnsList || []).map((ret) => (
                   <tr key={ret.id} className="transition-colors hover:bg-muted/10">
                     <td className="px-5 py-3">
                       <div className="font-medium text-foreground">{ret.itemName}</div>
@@ -143,7 +143,7 @@ export function ReturnsSection({ order }: { order: EnrichedOrder }) {
           </div>
 
           <div className="divide-y divide-border md:hidden">
-            {order.returnsList.map((ret) => (
+            {(order.returnsList || []).map((ret) => (
               <article key={ret.id} className="space-y-3 p-4">
                 <div>
                   <h3 className="font-medium text-foreground">{ret.itemName}</h3>

@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getDisplayTat, tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, type Order } from "@/lib/orders";
+import { getDisplayTat, tatColorClass, getOrderItemsCount, getPickerDisplayName, getUserDisplayName, getItemPickerIdentifier, type Order } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Package, Truck, User, Eye, MessageSquare, Trash2, Plus, Check, UserCheck } from "lucide-react";
 import { useUpdateOrderComment, useDeleteOrderComment } from "@/hooks/useOrders";
@@ -273,7 +273,13 @@ function getOrderPickers(order: Order): string[] {
     ? Array.from(
         new Set(
           order.itemsList
-            .map((i) => i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null))
+            .map((i) => {
+              const id = getItemPickerIdentifier(i);
+              if (!id || id === "any" || id === "Any Picker") return null;
+              const name = getPickerDisplayName(id);
+              if (!name || name === "Any Picker" || name === "Unknown Picker") return null;
+              return name;
+            })
             .filter((p): p is string => Boolean(p))
         )
       )
@@ -282,7 +288,12 @@ function getOrderPickers(order: Order): string[] {
     return itemPickers;
   }
   if (order.picker) {
-    return order.picker.split(",").map((p) => getPickerDisplayName(p.trim()));
+    const rawList = order.picker
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p && p !== "any" && p !== "Any Picker");
+    const mapped = Array.from(new Set(rawList.map((p) => getPickerDisplayName(p)).filter((p) => p && p !== "Unknown Picker")));
+    if (mapped.length > 0) return mapped;
   }
   return [];
 }

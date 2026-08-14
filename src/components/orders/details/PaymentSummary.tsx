@@ -3,7 +3,13 @@ import type { EnrichedOrder } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 
 export function PaymentSummary({ order }: { order: EnrichedOrder }) {
-  const paymentStatus = order.payment.balance > 0 ? "Pending" : "Paid";
+  const payment = order.payment || {};
+  const balance = payment.balance ?? 0;
+  const paymentStatus = balance > 0 ? "Pending" : "Paid";
+
+  const totalPaid = payment.totalPaid ?? (payment.total !== undefined ? payment.total - balance : 0);
+  const cash = payment.cash ?? (payment.method === "Cash" ? totalPaid : 0);
+  const card = payment.card ?? (payment.method === "Card" ? totalPaid : 0);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -30,20 +36,20 @@ export function PaymentSummary({ order }: { order: EnrichedOrder }) {
           <div className="space-y-3">
             <MoneyRow
               label="Subtotal"
-              hint={`${order.items} item${order.items === 1 ? "" : "s"}`}
-              value={order.payment.subtotal}
+              hint={`${order.items || 1} item${(order.items || 1) === 1 ? "" : "s"}`}
+              value={payment.subtotal ?? 0}
             />
-            <MoneyRow label="Discount" value={-order.payment.discount} danger />
+            <MoneyRow label="Discount" value={-(payment.discount ?? 0)} danger />
             <MoneyRow
               label="Shipping"
-              hint={order.payment.shippingMethod}
-              value={order.payment.shipping}
+              hint={payment.shippingMethod || "Standard Delivery"}
+              value={payment.shipping ?? 0}
             />
           </div>
 
           <div className="mt-5 space-y-3 border-t border-border pt-5">
-            <MoneyRow label="Total" value={order.payment.total} strong />
-            <MoneyRow label="Balance" value={order.payment.balance} strong />
+            <MoneyRow label="Total" value={payment.total ?? order.total ?? 0} strong />
+            <MoneyRow label="Balance" value={balance} strong />
           </div>
         </div>
       </div>
@@ -54,14 +60,14 @@ export function PaymentSummary({ order }: { order: EnrichedOrder }) {
           <h2 className="text-base font-semibold text-foreground">Payment</h2>
         </div>
         <div className="space-y-3 p-5">
-          <InfoRow label="Method" value={order.payment.method} />
+          <InfoRow label="Method" value={payment.method || "Cash"} />
           <InfoRow
             label="Total paid"
-            value={`QAR ${order.payment.totalPaid.toFixed(2)}`}
+            value={`QAR ${totalPaid.toFixed(2)}`}
             positive
           />
-          <InfoRow label="Cash" value={`QAR ${order.payment.cash.toFixed(2)}`} />
-          <InfoRow label="Card" value={`QAR ${order.payment.card.toFixed(2)}`} />
+          <InfoRow label="Cash" value={`QAR ${cash.toFixed(2)}`} />
+          <InfoRow label="Card" value={`QAR ${card.toFixed(2)}`} />
         </div>
       </div>
     </section>
@@ -81,7 +87,8 @@ function MoneyRow({
   strong?: boolean;
   danger?: boolean;
 }) {
-  const prefix = value < 0 ? "- " : "";
+  const safeVal = typeof value === "number" && !isNaN(value) ? value : 0;
+  const prefix = safeVal < 0 ? "- " : "";
 
   return (
     <div className="grid grid-cols-[1fr_auto] gap-3 text-sm sm:grid-cols-[1fr_160px_auto]">
@@ -96,7 +103,7 @@ function MoneyRow({
           danger && "text-destructive",
         )}
       >
-        {prefix}QAR {Math.abs(value).toFixed(2)}
+        {prefix}QAR {Math.abs(safeVal).toFixed(2)}
       </span>
       {hint ? (
         <span className="col-span-2 text-xs text-muted-foreground sm:hidden">{hint}</span>

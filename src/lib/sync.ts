@@ -48,14 +48,7 @@ function resolveDynamicRouting(itemsList: any[]): any[] {
           ...item,
           fc: prod.locationId,
           itemType: prod.locationId === "MWO" ? "MWH" : "FC",
-          locationId: undefined,
-          fcName: prod.locationId === "F01"
-            ? "Fulfillment Center Hilal"
-            : prod.locationId === "F02"
-              ? "Main Warehouse - Safety Stock"
-              : prod.locationId === "MWO"
-                ? "Main Warehouse Outdoor"
-                : "Virtual Stock",
+          fcName: prod.locationId === "MWO" ? "Main Warehouse Outdoor" : "Fulfillment Center Hilal",
         };
       }
     }
@@ -71,6 +64,98 @@ function resolveDynamicRouting(itemsList: any[]): any[] {
     
     return item;
   });
+}
+
+/** Reconciles order status and pickingStatus based strictly on actual item pick states */
+export function reconcileOrderStatusAndPicking(order: Order): Order {
+  const itemsList = order.itemsList || getMockOrderItems(order.id, order.items);
+  let resolvedItems = resolveDynamicRouting(itemsList);
+  const totalCount = resolvedItems.reduce((acc, item) => acc + (item.qty || 1), 0);
+
+  if (totalCount === 0) return { ...order, itemsList: resolvedItems };
+
+  // Ensure picked items have picker info populated & collect picker names
+  const orderPickerNames = order.picker ? order.picker.split(",").map((p) => p.trim()).filter(Boolean) : [];
+  
+  resolvedItems = resolvedItems.map((item, idx) => {
+    const isPicked = item.status === "Prepared" || item.status === "Picked" || Boolean((item as any).picked);
+    if (isPicked && !item.pickerName && !item.pickedBy) {
+      const fallbackName = orderPickerNames[idx % Math.max(orderPickerNames.length, 1)] || "Ahmed Khalil";
+      return {
+        ...item,
+        pickedBy: item.pickedBy || "picker@rmo.qa",
+        pickerName: fallbackName,
+      };
+    }
+    return item;
+  });
+
+  const pickedCount = resolvedItems.reduce((acc, item) => {
+    const isPicked = item.status === "Prepared" || item.status === "Picked" || Boolean((item as any).picked);
+    return isPicked ? acc + (item.qty || 1) : acc;
+  }, 0);
+
+  const itemPickers = Array.from(
+    new Set(
+      resolvedItems
+        .map((i) => {
+          const name = i.pickerName || (i.pickedBy ? getPickerDisplayName(i.pickedBy) : null);
+          if (!name || name === "Any Picker" || i.pickedBy === "any") return null;
+          return name;
+        })
+        .filter((p): p is string => Boolean(p))
+    )
+  );
+
+  const rawOrderPickers = order.picker
+    ? order.picker
+        .split(",")
+        .map((p) => p.trim())
+        .filter((p) => p && p !== "any" && p !== "Any Picker")
+    : [];
+
+  const picker = itemPickers.length > 0 ? itemPickers.join(", ") : (rawOrderPickers.length > 0 ? rawOrderPickers.join(", ") : null);
+
+  const pickingStatus = `${pickedCount}/${totalCount} Picked`;
+  let status = order.status;
+
+  const isSpecialOrTerminal = [
+    "Cancelled",
+    "Delivery Failed",
+    "Delivered",
+    "Flagged",
+    "Replacement",
+    "Exchange",
+    "Installation",
+    "PayLater",
+  ].includes(status);
+
+  if (!isSpecialOrTerminal) {
+    if (pickedCount === totalCount) {
+      if (status === "New" || status === "Unfulfilled" || status === "Picking") {
+        status = "Picked";
+      }
+    } else if (pickedCount > 0) {
+      if (status === "New" || status === "Unfulfilled" || status === "Picked" || status === "Packing" || status === "Ready to Assign") {
+        status = "Picking";
+      }
+    } else {
+      const hasAssignments = resolvedItems.some(
+        (i) => Boolean((i as any).pickedBy || (i as any).pickerName || (i as any).assignedTo)
+      );
+      if (status === "Picked" || status === "Packing" || status === "Ready to Assign") {
+        status = hasAssignments ? "Picking" : "New";
+      }
+    }
+  }
+
+  return {
+    ...order,
+    status,
+    pickingStatus,
+    picker,
+    itemsList: resolvedItems,
+  };
 }
 
 // ─── Seeding ─────────────────────────────────────────────────────────────
@@ -186,30 +271,33 @@ export function getSharedOrders(): Order[] {
         const order = adjustDateTime(o);
         const total = getMockOrderTotal(order.id, order.items, order.payment);
         const rawItems = order.itemsList || getMockOrderItems(order.id, order.items);
-        return {
+        const p = order.payment || {};
+        const method = p.method || (order as any).paymentMethod || "Cash";
+        const shipping = p.shipping ?? 10;
+        const discount = p.discount ?? 0;
+        const subtotal = total - shipping + discount;
+        const balance = (order as any).paymentBalance !== undefined ? (order as any).paymentBalance : (p.balance ?? 0);
+        const totalPaid = p.totalPaid ?? (total - balance);
+        const cash = p.cash ?? (method === "Cash" ? totalPaid : 0);
+        const card = p.card ?? (method === "Card" ? totalPaid : 0);
+        const formatted = {
           ...order,
           total,
           itemsList: resolveDynamicRouting(rawItems),
-          payment: order.payment
-            ? {
-                ...order.payment,
-                subtotal: total - (order.payment.shipping ?? 0) + (order.payment.discount ?? 0),
-                total,
-                balance: total - (order.payment.totalPaid ?? 0),
-              }
-            : {
-                method: (order as any).paymentMethod || "Cash",
-                total,
-                totalPaid: total - ((order as any).paymentBalance ?? 0),
-                cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
-                card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
-                subtotal: total - 10,
-                discount: 0,
-                shipping: 10,
-                balance: ((order as any).paymentBalance ?? 0),
-                shippingMethod: "Standard Delivery",
-              },
+          payment: {
+            method,
+            subtotal,
+            discount,
+            shipping,
+            total,
+            balance,
+            totalPaid,
+            cash,
+            card,
+            shippingMethod: p.shippingMethod || "Standard Delivery",
+          },
         };
+        return reconcileOrderStatusAndPicking(formatted);
       });
     }
   } catch (e) {
@@ -218,30 +306,33 @@ export function getSharedOrders(): Order[] {
   return MOCK_ORDERS.map((o) => {
     const order = adjustDateTime(o);
     const total = getMockOrderTotal(order.id, order.items, order.payment);
-    return {
+    const p = order.payment || {};
+    const method = p.method || (order as any).paymentMethod || "Cash";
+    const shipping = p.shipping ?? 10;
+    const discount = p.discount ?? 0;
+    const subtotal = total - shipping + discount;
+    const balance = (order as any).paymentBalance !== undefined ? (order as any).paymentBalance : (p.balance ?? 0);
+    const totalPaid = p.totalPaid ?? (total - balance);
+    const cash = p.cash ?? (method === "Cash" ? totalPaid : 0);
+    const card = p.card ?? (method === "Card" ? totalPaid : 0);
+    const formatted = {
       ...order,
       total,
       itemsList: resolveDynamicRouting(getMockOrderItems(order.id, order.items)),
-      payment: order.payment
-        ? {
-            ...order.payment,
-            subtotal: total - (order.payment.shipping ?? 0) + (order.payment.discount ?? 0),
-            total,
-            balance: total - (order.payment.totalPaid ?? 0),
-          }
-        : {
-            method: (order as any).paymentMethod || "Cash",
-            total,
-            totalPaid: total - ((order as any).paymentBalance ?? 0),
-            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
-            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
-            subtotal: total - 10,
-            discount: 0,
-            shipping: 10,
-            balance: ((order as any).paymentBalance ?? 0),
-            shippingMethod: "Standard Delivery",
-          },
+      payment: {
+        method,
+        subtotal,
+        discount,
+        shipping,
+        total,
+        balance,
+        totalPaid,
+        cash,
+        card,
+        shippingMethod: p.shippingMethod || "Standard Delivery",
+      },
     };
+    return reconcileOrderStatusAndPicking(formatted);
   });
 }
 
@@ -249,30 +340,33 @@ export function getSharedOrders(): Order[] {
 function saveSharedOrders(orders: Order[]): void {
   const enriched = orders.map((order) => {
     const total = getMockOrderTotal(order.id, order.items, order.payment);
-    return {
+    const p = order.payment || {};
+    const method = p.method || (order as any).paymentMethod || "Cash";
+    const shipping = p.shipping ?? 10;
+    const discount = p.discount ?? 0;
+    const subtotal = total - shipping + discount;
+    const balance = (order as any).paymentBalance !== undefined ? (order as any).paymentBalance : (p.balance ?? 0);
+    const totalPaid = p.totalPaid ?? (total - balance);
+    const cash = p.cash ?? (method === "Cash" ? totalPaid : 0);
+    const card = p.card ?? (method === "Card" ? totalPaid : 0);
+    const formatted = {
       ...order,
       total,
       itemsList: order.itemsList || getMockOrderItems(order.id, order.items),
-      payment: order.payment
-        ? {
-            ...order.payment,
-            subtotal: total - (order.payment.shipping ?? 0) + (order.payment.discount ?? 0),
-            total,
-            balance: total - (order.payment.totalPaid ?? 0),
-          }
-        : {
-            method: (order as any).paymentMethod || "Cash",
-            total,
-            totalPaid: total - ((order as any).paymentBalance ?? 0),
-            cash: ((order as any).paymentMethod || "Cash") === "Cash" ? total - ((order as any).paymentBalance ?? 0) : 0,
-            card: ((order as any).paymentMethod || "Cash") === "Card" ? total - ((order as any).paymentBalance ?? 0) : 0,
-            subtotal: total - 10,
-            discount: 0,
-            shipping: 10,
-            balance: ((order as any).paymentBalance ?? 0),
-            shippingMethod: "Standard Delivery",
-          },
+      payment: {
+        method,
+        subtotal,
+        discount,
+        shipping,
+        total,
+        balance,
+        totalPaid,
+        cash,
+        card,
+        shippingMethod: p.shippingMethod || "Standard Delivery",
+      },
     };
+    return reconcileOrderStatusAndPicking(formatted);
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
   localStorage.setItem(SYNC_EVENT_KEY, Date.now().toString());
